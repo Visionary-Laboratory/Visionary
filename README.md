@@ -38,7 +38,35 @@ Additionally, we provide a powerful [Online Editor](https://ai4sports.opengvlab.
   - **Static Gaussians**: PLY, SPLAT, KSplat, SPZ, SOG
   - **Standard Mesh Models**: GLB, GLTF, FBX, OBJ
   - **4DGS/Avatar/scaffold-GS**: ONNX
-  - **Your own algorithom**: See [Export your algorithm to ONNX](##Export your algorithm to ONNX) in detail.
+  - **Your own algorithom**: See [Export your algorithm to ONNX](#export-your-algorithm-to-onnx) in detail.
+
+## 🚀 Quick Start
+
+### 1. Install Dependencies
+
+Ensure that [Node.js](https://nodejs.org/) (v18+ recommended) is installed in your environment.
+
+```bash
+# Clone the repository
+git clone https://github.com/Visionary-Laboratory/visionary.git
+cd visionary
+
+# Install dependencies
+npm install
+```
+
+### 2. Start Development Server
+
+```bash
+npm run dev
+```
+
+After successful startup, visit the following address to view the example:
+👉 **http://localhost:3000/demo/index.html**
+
+### 3. Model Assets
+
+You can import our provided [example assets](https://ai4sports.opengvlab.com/models/trex.onnx) or your own 3DGS/4DGS assets in the page. For details on creating 4DGS assets, see [Convert to ONNX](#convert-to-onnx).
 
 ## 🛠️ Export your algorithm to ONNX
 
