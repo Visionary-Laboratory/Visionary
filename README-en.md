@@ -11,65 +11,66 @@
 
 [English](README-en.md) | [中文](README.md)
 
-**下一代 WebGPU 驱动的 3D Gaussian Splatting 渲染引擎**
+**Next-Generation WebGPU-Powered 3D Gaussian Splatting Rendering Engine**
 
-[VisionaryEditor](https://editor-url-placeholder) | [在线文档](https://your-docs-url.com) | [快速开始](#快速开始) | [常见问题](#faq)
+[VisionaryEditor](https://editor-url-placeholder) | [Online Docs](https://your-docs-url.com) | [Quick Start](#quick-start) | [FAQ](#faq)
 
 </div>
 
 ---
 
-**VisionaryCore** 是一个基于 **WebGPU** 和 **onnx-runtime** 技术构建的高性能沉浸式 Web 3D 渲染引擎。
+**VisionaryCore** is a high-performance immersive Web 3D rendering engine built on **WebGPU** and **onnx-runtime** technologies.
 
-它旨在打破传统 3D 网格与新兴点云渲染技术的界限，通过独创的 **混合渲染管线 (Hybrid Rendering Pipeline)**，实现在同一 WebGPU 上下文中无缝融合标准 3D 模型（GLB/GLTF）与高保真 Gaussian Splatting（3DGS/4DGS）内容，并提供统一的深度遮挡与光照处理。
+It aims to break the boundaries between traditional 3D meshes and emerging point cloud rendering technologies. Through an original **Hybrid Rendering Pipeline**, it seamlessly blends standard 3D models (GLB/GLTF) with high-fidelity Gaussian Splatting (3DGS/4DGS) content within the same WebGPU context, providing unified depth occlusion and lighting processing.
 
-此外，我们还提供了一个功能强大的 [在线编辑器](https://editor-url-placeholder)，帮助用户轻松管理和编辑 3D 场景。
+Additionally, we provide a powerful [Online Editor](https://editor-url-placeholder) to help users easily manage and edit 3D scenes.
 
-## ✨ 核心特性
+## ✨ Core Features
 
-- **🚀 原生 WebGPU 驱动**：利用 `three/webgpu` 与自定义 Compute Shader 光栅化器，实现百万级高斯粒子的高性能并行排序与渲染。
-- **🎨 混合渲染架构**：自动处理高斯点云与标准 Mesh 的深度混合（Depth Compositing），完美解决遮挡问题，支持复杂的场景组合。
-- **📦 统一资源加载 (Universal Loader)**：单一接口智能识别并加载多种格式：
-  - **静态高斯**: PLY, SPLAT, KSplat, SPZ, SOG
-  - **标准模型**: GLB, GLTF, FBX, OBJ
-  - **动态高斯**: ONNX (4DGS)
-- **🧠 强大的 AI 推理**：深度集成 **ONNX Runtime Web (ORT)**，支持 4D 动态高斯模型的实时解码与播放，带来电影级的动态视觉体验。
-- **🛠️ 开发者友好**：提供基于 TypeScript 的模块化 API，易于集成到现有的 Web 应用中。
+- **🚀 Native WebGPU Powered**: Utilizes `three/webgpu` and a custom Compute Shader rasterizer to achieve high-performance parallel sorting and rendering of millions of Gaussian particles.
+- **🎨 Hybrid Rendering Architecture**: Automatically handles depth mixing (Depth Compositing) between Gaussian point clouds and standard Meshes, perfectly solving occlusion issues and supporting complex scene compositions.
+- **📦 Universal Asset Loader**: Single interface to intelligently identify and load multiple formats:
+  - **Static Gaussians**: PLY, SPLAT, KSplat, SPZ, SOG
+  - **Standard Models**: GLB, GLTF, FBX, OBJ
+  - **Dynamic Gaussians**: ONNX (4DGS)
+- **🧠 Powerful AI Inference**: Deeply integrated with **ONNX Runtime Web (ORT)** to support real-time decoding and playback of 4D dynamic Gaussian models, delivering cinematic dynamic visual experiences.
+- **🛠️ Developer Friendly**: Provides a modular API based on TypeScript, easy to integrate into existing Web applications.
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1. 安装依赖
+### 1. Install Dependencies
 
-确保您的环境中已安装 [Node.js](https://nodejs.org/) (推荐 v18+)。
+Ensure that [Node.js](https://nodejs.org/) (v18+ recommended) is installed in your environment.
 
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/your-username/Visionary-PrePublic.git
 cd Visionary-PrePublic
 
-# 安装依赖
+# Install dependencies
 npm install
 ```
 
-### 2. 启动开发服务器
+### 2. Start Development Server
 
 ```bash
 npm run dev
 ```
 
-启动成功后，访问以下地址查看示例：
+After successful startup, visit the following address to view the example:
 👉 **http://localhost:8901/demo/index.html**
 
-### 3. 模型资产
+### 3. Model Assets
 
-可以在页面中导入我们提供的[示例资产](https://editor-url-placeholder)，或自己的3DGS/4DGS资产。4DGS资产制作详见[转化ONNX格式](#转化ONNX格式)。
+You can import our provided [example assets](https://editor-url-placeholder) or your own 3DGS/4DGS assets in the page. For details on creating 4DGS assets, see [Convert to ONNX](#convert-to-onnx).
 
-## 🧠 转化ONNX格式
+## 🧠 Convert to ONNX
 
-本项目支持多种3DGS/4DGS表示的渲染，要做到这一点，需要将训练好的3D表示导出为 ONNX 格式。本项目提供了4DGS/动态Avatar/scaffold-GS的转化示例，详见[/examples](/examples/README-ZH.md)。
-以4DGS的转化为例：
+This project supports rendering of various 3DGS/4DGS representations. To achieve this, trained 3D representations need to be exported to the ONNX format. This project provides conversion examples for 4DGS/Dynamic Avatar/Scaffold-GS, see [/examples](/examples/README.md) for details.
 
-### **环境配置**
+Taking 4DGS conversion as an example:
+
+### **Environment Configuration**
 
 ```bash
 git clone https://github.com/hustvl/4DGaussians
@@ -78,22 +79,22 @@ git submodule update --init --recursive
 conda create -n Gaussians4D python=3.7 
 conda activate Gaussians4D
     
-# 安装依赖
+# Install requirements
 pip install -r requirements.txt
 pip install onnx
 
-# 安装子模块
+# Install submodules
 pip install -e submodules/depth-diff-gaussian-rasterization
 pip install -e submodules/simple-knn
 ```
 
-### **代码准备**
+### **Code Preparation**
 
-要导出为 ONNX，必须修改 4DGaussians 仓库中的 `train.py` 以保存 hex-plane AABB。
+To export to ONNX, you must modify `train.py` in the 4DGaussians repository to save the hex-plane AABB.
 
-**修改第 299-313 行左右：**
+**Modify around line 299-313:**
 
-*更改前：*
+*Before Change:*
 ```python
 tb_writer = prepare_output_and_logger(expname)
 gaussians = GaussianModel(dataset.sh_degree, hyper)
@@ -102,7 +103,7 @@ timer = Timer()
 scene = Scene(dataset, gaussians, load_coarse=None)
 ```
 
-*更改后：*
+*After Change:*
 ```python
 args.model_path = os.path.join("./output/", expname)
 os.makedirs(args.model_path, exist_ok = True)
@@ -110,13 +111,13 @@ gaussians = GaussianModel(dataset.sh_degree, hyper)
 dataset.model_path = args.model_path
 timer = Timer()
 scene = Scene(dataset, gaussians, load_coarse=None)
-# 为 ONNX 导出添加：
+# ADDED FOR ONNX EXPORT:
 grid_aabb = scene.gaussians._deformation.deformation_net.get_aabb
 args.grid_aabb = [x.cpu().tolist() for x in grid_aabb]
 tb_writer = prepare_output_and_logger(expname)
 ```
 
-*为确保路径一致，请**删除**随后的自动 `args.model_path` 生成逻辑（UUID 生成）：*
+*To ensure consistent paths, **remove** the subsequent automatic `args.model_path` generation logic (UUID generation):*
 ```python
 if not args.model_path:
         # if os.getenv('OAR_JOB_ID'):
@@ -131,29 +132,29 @@ if not args.model_path:
     os.makedirs(args.model_path, exist_ok = True)
 ```
 
-### **数据准备**
+### **Data Preparation**
 
-*   **合成场景：** 使用 [D-NeRF 数据集](https://github.com/albertpumarola/D-NeRF)。您可以从 [dropbox](https://www.dropbox.com/scl/fi/cdcmkufncwcikk1dzbgb4/data.zip?rlkey=n5m21i84v2b2xk6h7qgiu8nkg&e=1&dl=0) 下载数据集。
+*   **Synthetic Scenes:** Use the [D-NeRF dataset](https://github.com/albertpumarola/D-NeRF). You can download the dataset from [dropbox](https://www.dropbox.com/scl/fi/cdcmkufncwcikk1dzbgb4/data.zip?rlkey=n5m21i84v2b2xk6h7qgiu8nkg&e=1&dl=0).
 
-*   **真实场景：** 使用 [Neural 3D Video 数据集](https://github.com/facebookresearch/Neural_3D_Video)。为了节省内存，请提取每个视频的帧并应用 [COLMAP](https://colmap.github.io/) 获取初始点云。
+*   **Real Scenes:** Use the [Neural 3D Video dataset](https://github.com/facebookresearch/Neural_3D_Video). To save memory, please extract frames from each video and apply [COLMAP](https://colmap.github.io/) to get initial point clouds.
 
-    1.  **提取帧：**
+    1.  **Extract Frames:**
         ```bash
         python scripts/preprocess_dynerf.py --datadir data/dynerf/cut_roasted_beef
         ```
 
-    2.  **生成点云：**
+    2.  **Generate Point Clouds:**
         ```bash
         bash colmap.sh data/dynerf/cut_roasted_beef llff
         ```
 
-    3.  **下采样点云：**
+    3.  **Downsample Point Clouds:**
         ```bash
         python scripts/downsample_point.py data/dynerf/cut_roasted_beef/colmap/dense/workspace/fused.ply data/dynerf/cut_roasted_beef/points3D_downsample2.ply
         ```
 
-**目录结构**
-最终数据集应按如下方式组织：
+**Directory Structure**
+The final datasets should be organized as follows:
 
 ```text
 ├── data
@@ -180,14 +181,14 @@ if not args.model_path:
 │     ├── ...
 ```
 
-### **训练**
+### **Training**
 
-示例训练命令 (D-NeRF `hook` 场景)：
+Example training command (D-NeRF `hook` scene):
 
 ```bash
 python train.py -s data/dnerf/hook --port 6017 --expname "dnerf/hook" --configs arguments/dnerf/hook.py 
 ```
-训练后，检查点和输出保存在 `./output/dnerf/hook` 中，如下所示：
+After training, the checkpoints and output are saved in `./output/dnerf/hook` as follows:
 ```text
 ├── output
 │   | dnerf 
@@ -206,9 +207,9 @@ python train.py -s data/dnerf/hook --port 6017 --expname "dnerf/hook" --configs 
 │     ├── ...
 ```
 
-### **导出 ONNX**
+### **Export to ONNX**
 
-在 4D-GS 环境中，使用导出脚本（确保您位于 `ONNXExample` 目录结构中）：
+In the 4D-GS environment, use the exporter script (ensure you are in the `ONNXExample` directory structure):
 
 ```bash
 git clone -b 4dgs https://github.com/Visionary-Laboratory/ONNXExample.git
@@ -218,9 +219,9 @@ python onnx_template.py --ply path/to/output/dnerf/hook/point_cloud/iteration_14
                   --out your/prefered/onnxpath/gaussians4d.onnx
 ```
 
-## 🤝 贡献与致谢
+## 🤝 Contributions & Acknowledgments
 
-本项目深受以下开源项目的启发与支持，特此致谢：
+This project is deeply inspired and supported by the following open source projects:
 
 - **[3D Gaussian Splatting](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/)**
 - **[Three.js](https://threejs.org/)**
@@ -228,9 +229,9 @@ python onnx_template.py --ply path/to/output/dnerf/hook/point_cloud/iteration_14
 - **[web-splat](https://github.com/KeKsBoTer/web-splat/)**
 - **[image-to-line-drawing](https://github.com/luckycucu/image-to-line-drawing/)**
 
-## 📄 引用 (Citation)
+## 📄 Citation
 
-如果您在研究或项目中使用了 VisionaryCore，请考虑引用：
+If you use VisionaryCore in your research or projects, please consider citing:
 
 ```bibtex
 @misc{visionarycore2025,
@@ -245,4 +246,5 @@ python onnx_template.py --ply path/to/output/dnerf/hook/point_cloud/iteration_14
 
 ## 📝 License
 
-本项目采用 [MIT License](LICENSE) 许可证。
+This project is licensed under the [MIT License](LICENSE).
+
