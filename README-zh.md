@@ -1,17 +1,17 @@
-# VisionaryCore
+# Visionary
 
 <div align="center">
 
-![VisionaryCore Logo](public/vite.svg)
+<img width="140" height="96" alt="Logo_深色竖版英文" src="https://github.com/user-attachments/assets/2d2f2c37-9fd5-438a-bb42-8163b5f8aa7a" />
 
-[![NPM Version](https://img.shields.io/npm/v/visionary-core?style=flat-square)](https://www.npmjs.com/package/visionary-core)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+[![arXiv](https://img.shields.io/badge/arXiv-Pending-b31b1b.svg)](https://arxiv.org/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![WebGPU](https://img.shields.io/badge/WebGPU-Ready-green?style=flat-square)](https://www.w3.org/TR/webgpu/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square)](https://www.typescriptlang.org/)
 
-[English](README-en.md) | [中文](README.md)
+[English](README.md) | [中文](README-zh.md)
 
-**下一代 WebGPU 驱动的 3D Gaussian Splatting 渲染引擎**
+**Visionary: 基于 WebGPU 高斯泼溅平台构建的世界模型载体**
 
 [VisionaryEditor](https://editor-url-placeholder) | [在线文档](https://your-docs-url.com) | [快速开始](#快速开始) | [常见问题](#faq)
 
@@ -19,11 +19,13 @@
 
 ---
 
-**VisionaryCore** 是一个基于 **WebGPU** 和 **onnx-runtime** 技术构建的高性能沉浸式 Web 3D 渲染引擎。
+**Visionary** 是一个基于 **WebGPU** 和 **onnx-runtime** 技术构建的高性能沉浸式 Web 3D 渲染引擎。
 
 它旨在打破传统 3D 网格与新兴点云渲染技术的界限，通过独创的 **混合渲染管线 (Hybrid Rendering Pipeline)**，实现在同一 WebGPU 上下文中无缝融合标准 3D 模型（GLB/GLTF）与高保真 Gaussian Splatting（3DGS/4DGS）内容，并提供统一的深度遮挡与光照处理。
 
 此外，我们还提供了一个功能强大的 [在线编辑器](https://editor-url-placeholder)，帮助用户轻松管理和编辑 3D 场景。
+
+![Teaser](teaser.pdf)
 
 ## ✨ 核心特性
 
@@ -66,7 +68,7 @@ npm run dev
 
 ## 🧠 转化ONNX格式
 
-本项目支持多种3DGS/4DGS表示的渲染，要做到这一点，需要将训练好的3D表示导出为 ONNX 格式。本项目提供了4DGS/动态Avatar/scaffold-GS的转化示例，详见[/examples](/examples/README-ZH.md)。
+本项目支持多种3DGS/4DGS表示的渲染，要做到这一点，需要将训练好的3D表示导出为 ONNX 格式。本项目提供了4DGS/动态Avatar/scaffold-GS的转化示例，详见[/examples](examples/README-ZH.md)。
 
 ## 🤝 贡献与致谢
 
@@ -80,19 +82,12 @@ npm run dev
 
 ## 📄 引用 (Citation)
 
-如果您在研究或项目中使用了 VisionaryCore，请考虑引用：
+如果您在研究或项目中使用了 Visionary，请考虑引用：
 
 ```bibtex
-@misc{visionarycore2025,
-  author = {Your Name and Contributors},
-  title = {VisionaryCore: High-Performance WebGPU 3D Gaussian Splatting Renderer},
-  year = {2025},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/your-username/Visionary-PrePublic}}
-}
+
 ```
 
 ## 📝 License
 
-本项目采用 [MIT License](LICENSE) 许可证。
+本项目采用 [Apache-2.0 License](LICENSE) 许可证。

@@ -1,15 +1,15 @@
+# Visionary
+
 <div align="center">
+
 <img width="140" height="96" alt="Logo_深色竖版英文" src="https://github.com/user-attachments/assets/2d2f2c37-9fd5-438a-bb42-8163b5f8aa7a" />
 
-
-
-
-[![NPM Version](https://img.shields.io/npm/v/visionary-core?style=flat-square)](https://www.npmjs.com/package/visionary-core)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+[![arXiv](https://img.shields.io/badge/arXiv-Pending-b31b1b.svg)](https://arxiv.org/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![WebGPU](https://img.shields.io/badge/WebGPU-Ready-green?style=flat-square)](https://www.w3.org/TR/webgpu/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square)](https://www.typescriptlang.org/)
 
-[English](README-en.md) | [中文](README.md)
+[English](README.md) | [中文](README-zh.md)
 
 **Visionary: The World Model Carrier Built on WebGPU-Powered Gaussian Splatting Platform**
 
@@ -24,6 +24,8 @@
 It aims to break the boundaries between traditional 3D meshes and emerging point cloud rendering technologies. Through an original **Hybrid Rendering Pipeline**, it seamlessly blends standard 3D models (GLB/GLTF) with high-fidelity Gaussian Splatting (3DGS/4DGS) content within the same WebGPU context, providing unified depth occlusion and lighting processing.
 
 Additionally, we provide a powerful [Online Editor](https://editor-url-placeholder) to help users easily manage and edit 3D scenes.
+
+![Teaser](teaser.pdf)
 
 ## ✨ Core Features
 
@@ -89,4 +91,3 @@ If you use Visionary in your research or projects, please consider citing:
 ## 📝 License
 
 This project is licensed under the [Apache-2.0 license](LICENSE).
-
