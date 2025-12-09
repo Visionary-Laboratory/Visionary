@@ -21,7 +21,7 @@
 
 **Visionary** is a high-performance immersive Web 3D rendering engine built on **WebGPU** and **onnx-runtime** technologies.
 
-It aims to break the boundaries between traditional 3D meshes and emerging point cloud rendering technologies. Through an original **Hybrid Rendering Pipeline**, it seamlessly blends standard 3D models (GLB/GLTF) with high-fidelity Gaussian Splatting (3DGS/4DGS) content within the same WebGPU context, providing unified depth occlusion and lighting processing.
+It aims to break the boundaries between traditional 3D meshes and emerging point cloud rendering technologies. Through an original **Hybrid Rendering Pipeline**, it seamlessly blends standard meshes with high-fidelity Gaussian Splatting (3DGS/4DGS) content within the same WebGPU context, providing unified depth occlusion and lighting processing.
 
 Additionally, we provide a powerful [Online Editor](https://editor-url-placeholder) to help users easily manage and edit 3D scenes.
 
@@ -32,8 +32,8 @@ Additionally, we provide a powerful [Online Editor](https://editor-url-placehold
 - **📦 Universal Asset Loader**: Single interface to intelligently identify and load multiple formats:
   - **Static Gaussians**: PLY, SPLAT, KSplat, SPZ, SOG
   - **Standard Models**: GLB, GLTF, FBX, OBJ
-  - **Dynamic Gaussians**: ONNX (4DGS)
-- **🧠 Powerful AI Inference**: Deeply integrated with **ONNX Runtime Web (ORT)** to support real-time decoding and playback of 4D dynamic Gaussian models, delivering cinematic dynamic visual experiences.
+  - **Dynamic Gaussians or Avater**: ONNX
+- **🧠 Powerful AI Inference**: Deeply integrated with **ONNX Runtime Web (ORT)** to support real-time decoding and playback of dynamic Gaussian models. 
 - **🛠️ Developer Friendly**: Provides a modular API based on TypeScript, easy to integrate into existing Web applications.
 
 ## 🚀 Quick Start
