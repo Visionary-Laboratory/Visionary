@@ -9,7 +9,7 @@ This viewer supports various 3D Gaussian Splatting formats. Below is a quick ref
 | **Standard** | `.ply` | [Inria 3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) | Direct Download or Training Export|
 | **Compressed** | `.compressed.ply` | [SuperSplat](https://github.com/playcanvas/supersplat) | [splat-transform](https://github.com/playcanvas/splat-transform) |
 | **Splat** | `.splat` | [antimatter15/splat](https://github.com/antimatter15/splat) | [SuperSplat Editor](https://playcanvas.com/supersplat/editor) |
-| **SPZ** | `.spz` | [nianticlabs/spz](https://github.com/nianticlabs/spz) | `ply_to_spz.py` (uses [spz](https://github.com/nianticlabs/spz) lib) |
+| **SPZ** | `.spz` | [nianticlabs/spz](https://github.com/nianticlabs/spz) | [SPZ Documentation](https://github.com/nianticlabs/spz/blob/main/src/python/README.md#converting-ply-to-spz)|
 | **KSplat** | `.ksplat` | [GaussianSplats3D](https://github.com/mkkellogg/GaussianSplats3D) | [GaussianSplats3D Demo Page](https://projects.markkellogg.org/threejs/demo_gaussian_splats_3d.php) |
 | **SOG** | `.sog` | [splat-transform](https://github.com/playcanvas/splat-transform) | [splat-transform](https://github.com/playcanvas/splat-transform) |
 
@@ -39,19 +39,9 @@ splat-transform input.ply output.compressed.ply
 
 ### 3. SPZ (`.spz`)
 
-Use the provided Python script to convert PLY files to the highly compressed SPZ format.
+You can convert your `.ply` files to `.spz` using the tools provided in the official repository.
 
-**Prerequisites:**
-```bash
-git clone https://github.com/nianticlabs/spz.git
-cd spz
-pip install .
-```
-
-**Usage:**
-```bash
-python ply_to_spz.py input.ply output.spz
-```
+Please follow the instructions in the **[Niantic Labs SPZ Documentation](https://github.com/nianticlabs/spz/blob/main/src/python/README.md#converting-ply-to-spz)**.
 
 ### 4. Splat (`.splat`)
 

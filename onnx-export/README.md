@@ -1,7 +1,5 @@
 # 🚀 Visionary: Data Preparation & ONNX Export Guide
 
-<!-- This unified guide covers the pipeline for preparing, training, and exporting data for the **Visionary Viewer**. It includes instructions for Animatable Avatars, Dynamic Scenes (4DGS), Structured Static Scenes (Scaffold-GS), and general format conversions. -->
-
 
 Visionary is built around a standardized **Gaussian Generator** contract: as long as your 3DGS-family algorithm (e.g., classic / structured / 4DGS, avatars, or any custom variant) can be exported to ONNX and outputs per-frame Gaussian attributes (position, scale, rotation, color, etc.), it can be plugged into the viewer without modifying the WebGPU renderer or shaders. The pipelines in this document (Animatable Avatar, 4DGS, Scaffold-GS, etc.) are provided as reference implementations, and you can treat them as templates when adapting your own method to the Visionary runtime.
 
@@ -10,17 +8,19 @@ This unified guide covers the pipeline for preparing, training, and exporting da
 
 To make your own Gaussian Generator run efficiently on Visionary, we recommend a few practical ONNX export tips for the WebGPU runtime:
 
-- **Export a graph-capture-friendly model.**  
-  Try to avoid dynamic control flow and highly dynamic tensor shapes so that ONNX Runtime WebGPU can enable graph capture. A “stable” graph (fixed batch/sequence shapes, no Python/Loop-style ops, no exotic dtypes) will run significantly faster once captured and reused across frames.
+- **Export a graph-capture-friendly model.**  
+  Try to avoid dynamic control flow and highly dynamic tensor shapes so that ONNX Runtime WebGPU can enable graph capture. A “stable” graph (fixed batch/sequence shapes, no Python/Loop-style ops, no exotic dtypes) will run significantly faster once captured and reused across frames.
 
-- **Follow the indexing patterns used in the examples below.**  
-  When you slice or index Gaussian attributes (positions, scales, rotations, colors, etc.), mirror the indexing strategy from the reference pipelines in this repo. This keeps the layout contiguous and compatible with our WebGPU kernels and post-processing utilities.
+- **Follow the indexing patterns used in the examples below.**  
+  When you slice or index Gaussian attributes (positions, scales, rotations, colors, etc.), mirror the indexing strategy from the reference pipelines in this repo. This keeps the layout contiguous and compatible with our WebGPU kernels and post-processing utilities.
 
-- **Replace built-in Norm ops with manual implementations.**  
-  ONNX Runtime’s current WebGPU backend has known issues and performance quirks around Norm, LayerNormalization, RMSNorm. We strongly recommend exporting models where these norms have been rewritten into primitive ops (e.g., `ReduceMean` + `Sub` + `Mul` + `Add`), or using a preprocessing script to replace them before deployment.
+- **Replace built-in Norm ops with manual implementations.**  
+  ONNX Runtime’s current WebGPU backend has known issues and performance quirks around Norm, LayerNormalization, RMSNorm. We strongly recommend exporting models where these norms have been rewritten into primitive ops (e.g., `ReduceMean` + `Sub` + `Mul` + `Add`), or using a preprocessing script to replace them before deployment.
 
-- **Avoid huge single `Concat` / `Split` nodes.**  
-  WebGPU shaders have limits on the number of resource bindings/slots. If your model uses very large `Concat` or `Split` ops over many inputs/outputs, break them into several smaller `Concat`/`Split` stages and then merge the results. This helps the WebGPU compiler stay within resource limits and improves stability.
+- **Avoid huge single `Concat` / `Split` nodes.**  
+  WebGPU shaders have limits on the number of resource bindings/slots. If your model uses very large `Concat` or `Split` ops over many inputs/outputs, break them into several smaller `Concat`/`Split` stages and then merge the results. This helps the WebGPU compiler stay within resource limits and improves stability.
+
+
 
 
 
@@ -375,7 +375,7 @@ This section describes how to convert standard 3DGS outputs (PLY) into various o
 | **Standard** | `.ply` | [Inria 3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) | Direct Download or Training Export|
 | **Compressed** | `.compressed.ply` | [SuperSplat](https://github.com/playcanvas/supersplat) | [splat-transform](https://github.com/playcanvas/splat-transform) |
 | **Splat** | `.splat` | [antimatter15/splat](https://github.com/antimatter15/splat) | [SuperSplat Editor](https://playcanvas.com/supersplat/editor) |
-| **SPZ** | `.spz` | [nianticlabs/spz](https://github.com/nianticlabs/spz) | `ply_to_spz.py` (from [spz](https://github.com/nianticlabs/spz) lib) |
+| **SPZ** | `.spz` | [nianticlabs/spz](https://github.com/nianticlabs/spz) | [SPZ Documentation](https://github.com/nianticlabs/spz/blob/main/src/python/README.md#converting-ply-to-spz) |
 | **KSplat** | `.ksplat` | [GaussianSplats3D](https://github.com/mkkellogg/GaussianSplats3D) | [GaussianSplats3D Demo Page](https://projects.markkellogg.org/threejs/demo_gaussian_splats_3d.php) |
 | **SOG** | `.sog` | [splat-transform](https://github.com/playcanvas/splat-transform) | [splat-transform](https://github.com/playcanvas/splat-transform) |
 
@@ -391,12 +391,9 @@ splat-transform input.ply output.sog
 ```
 
 **2. SPZ (.spz)**
-Requires Python and `spz` lib:
-```bash
-git clone https://github.com/nianticlabs/spz.git
-cd spz && pip install .
-python ply_to_spz.py input.ply output.spz
-```
+You can convert your `.ply` files to `.spz` using the tools provided in the official repository.
+
+Please follow the instructions in the **[Niantic Labs SPZ Documentation](https://github.com/nianticlabs/spz/blob/main/src/python/README.md#converting-ply-to-spz)**.
 
 **3. KSplat (.ksplat)**
 Requires Node.js:
@@ -417,7 +414,7 @@ Use the web-based [SuperSplat Editor](https://playcanvas.com/supersplat/editor) 
 Once you have generated your model (ONNX, PLY, Splat, etc.), you can visualize it using our viewer.
 
 **View Results:**
-Locate the generated ONNX model (typically in the `./outputs/onnx` directory for Avatar, or the path you specified in `--out` for 4DGS/Scaffold) and upload it to the [Visionary Website](https://ai4sports.opengvlab.com/index_visionary.html).
+Locate the generated ONNX model (typically in the `./outputs/onnx` directory for Avatar, or the path you specified in `--out` for 4DGS/Scaffold) and upload it to the [Visionary Website](https://visionary-laboratory.github.io/visionary/index_visionary.html).
 
 ---
 
@@ -428,7 +425,7 @@ We sincerely thank the authors of the following projects for their wonderful wor
 *   **Animatable Avatar:** [LHM](https://github.com/aigc3d/LHM)
 *   **4DGS:** [4D-GS](https://github.com/hustvl/4DGaussians) and [TiNeuVox](https://github.com/hustvl/TiNeuVox)
 *   **Scaffold-GS:** [Scaffold-GS](https://github.com/city-super/Scaffold-GS)
-*   **Viewers & Compression:** [Inria 3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/), [SuperSplat](https://github.com/playcanvas/supersplat), [GaussianSplats3D](https://github.com/mkkellogg/GaussianSplats3D).
+*   **Viewers & Compression:** [Inria 3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/), [SuperSplat](https://github.com/playcanvas/supersplat), [GaussianSplats3D](https://github.com/mkkellogg/GaussianSplats3D), [spz](https://github.com/nianticlabs/spz).
 
 ## 📚 Citations
 

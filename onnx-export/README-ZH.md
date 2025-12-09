@@ -1,7 +1,5 @@
 # 🚀 Visionary: 数据准备与 ONNX 导出指南
 
-<!-- 本统一指南涵盖了为 Visionary Viewer 准备、训练和导出的流程。 -->
-
 Visionary 基于标准化的 **Gaussian Generator** 协议：只要你的 3DGS 系列算法（经典 / 结构化 / 4DGS、Avatar，或任意自定义变体）能导出 ONNX 并输出逐帧的高斯属性（位置、尺度、旋转、颜色等），就可以在无需修改 WebGPU 渲染器或着色器的情况下接入查看器。本文档中的各个流水线（Avatar、4DGS、Scaffold-GS 等）可作为参考实现，你可以将它们当作模板把自己的方法适配到 Visionary 运行时。
 
 为了让你的 Gaussian Generator 在 Visionary 上高效运行，推荐一些针对 WebGPU 运行时的 ONNX 导出实用技巧：
@@ -12,6 +10,7 @@ Visionary 基于标准化的 **Gaussian Generator** 协议：只要你的 3DGS �
 - **避免巨型单个 `Concat` / `Split`。** WebGPU shader 受资源绑定数量限制，如果模型有非常大的 `Concat` 或 `Split`（大量输入/输出），请拆成多段 `Concat`/`Split` 再合并，可提升编译稳定性。
 
 本统一指南涵盖了为 **Visionary Viewer** 准备、训练和导出数据的流程。它包括针对可动画化 Avatar、动态场景 (4DGS)、结构化静态场景 (Scaffold-GS) 和通用格式转换的说明。
+
 
 ## 📋 目录
 1. [可动画化 Avatar (基于 SMPL-X)](#1-可动画化-avatar-onnx-模型)
@@ -364,7 +363,7 @@ python onnx_template.py --ply output_path/point_cloud/iteration_30000/point_clou
 | **标准** | `.ply` | [Inria 3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) | 直接下载或训练导出 |
 | **压缩版** | `.compressed.ply` | [SuperSplat](https://github.com/playcanvas/supersplat) | [splat-transform](https://github.com/playcanvas/splat-transform) |
 | **Splat** | `.splat` | [antimatter15/splat](https://github.com/antimatter15/splat) | [SuperSplat Editor](https://playcanvas.com/supersplat/editor) |
-| **SPZ** | `.spz` | [nianticlabs/spz](https://github.com/nianticlabs/spz) | `ply_to_spz.py` (来自 [spz](https://github.com/nianticlabs/spz) 库) |
+| **SPZ** | `.spz` | [nianticlabs/spz](https://github.com/nianticlabs/spz) | [Converting PLY to SPZ](https://github.com/nianticlabs/spz/blob/main/src/python/README.md#converting-ply-to-spz) |
 | **KSplat** | `.ksplat` | [GaussianSplats3D](https://github.com/mkkellogg/GaussianSplats3D) | [GaussianSplats3D 演示页面](https://projects.markkellogg.org/threejs/demo_gaussian_splats_3d.php) |
 | **SOG** | `.sog` | [splat-transform](https://github.com/playcanvas/splat-transform) | [splat-transform](https://github.com/playcanvas/splat-transform) |
 
@@ -380,12 +379,8 @@ splat-transform input.ply output.sog
 ```
 
 **2. SPZ (.spz)**
-需要 Python 和 `spz` 库:
-```bash
-git clone https://github.com/nianticlabs/spz.git
-cd spz && pip install .
-python ply_to_spz.py input.ply output.spz
-```
+参考官方文档中的转换指南：
+[Converting PLY to SPZ](https://github.com/nianticlabs/spz/blob/main/src/python/README.md#converting-ply-to-spz)
 
 **3. KSplat (.ksplat)**
 需要 Node.js:
@@ -406,7 +401,7 @@ node util/create-ksplat.js input.ply output.ksplat
 一旦生成了模型（ONNX, PLY, Splat 等），您可以使用我们的查看器进行可视化。
 
 **查看结果：**
-找到生成的 ONNX 模型（通常在 Avatar 的 `./outputs/onnx` 目录中，或 4DGS/Scaffold 的 `--out` 指定路径中）并将其上传到 [Visionary 网站](https://ai4sports.opengvlab.com/index_visionary.html)。
+找到生成的 ONNX 模型（通常在 Avatar 的 `./outputs/onnx` 目录中，或 4DGS/Scaffold 的 `--out` 指定路径中）并将其上传到 [Visionary 网站](https://visionary-laboratory.github.io/visionary/index_visionary.html)。
 
 ---
 
@@ -417,7 +412,7 @@ node util/create-ksplat.js input.ply output.ksplat
 *   **Animatable Avatar:** [LHM](https://github.com/aigc3d/LHM)
 *   **4DGS:** [4D-GS](https://github.com/hustvl/4DGaussians) 和 [TiNeuVox](https://github.com/hustvl/TiNeuVox)
 *   **Scaffold-GS:** [Scaffold-GS](https://github.com/city-super/Scaffold-GS)
-*   **Viewers & Compression:** [Inria 3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/), [SuperSplat](https://github.com/playcanvas/supersplat), [GaussianSplats3D](https://github.com/mkkellogg/GaussianSplats3D).
+*   **Viewers & Compression:** [Inria 3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/), [SuperSplat](https://github.com/playcanvas/supersplat), [GaussianSplats3D](https://github.com/mkkellogg/GaussianSplats3D), [spz](https://github.com/nianticlabs/spz).
 
 ## 📚 引用
 
