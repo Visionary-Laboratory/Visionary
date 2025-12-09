@@ -72,7 +72,7 @@ npm run dev
 <a id="导出算法至-onnx"></a>
 ## 🛠️ 导出算法至 ONNX
 
-本项目支持多种 3DGS/4DGS 表示的渲染。要做到这一点，需要将训练好的 3D 表示导出为 ONNX 格式。本项目提供了 4DGS/Dynamic Avatar/Scaffold-GS 的转换示例，详见[导出说明](/onnx-export/README-ZH.md)。
+本项目支持多种 3DGS/4DGS 表示的渲染。要做到这一点，需要将训练好的 3D 表示导出为 ONNX 格式。本项目提供了 4DGS/Dynamic Avatar/Scaffold-GS 的转换示例，详见[导出指南](onnx-export/README.md)。
 
 ## 🤝 贡献与致谢
 

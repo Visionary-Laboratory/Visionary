@@ -37,7 +37,7 @@ We have developed a powerful [Online Editor](https://ai4sports.opengvlab.com/ind
   - **Static Gaussians**: PLY, SPLAT, KSplat, SPZ, SOG
   - **Standard Mesh Models**: GLB, GLTF, FBX, OBJ
   - **4DGS/Avatar/scaffold-GS**: ONNX
-  - **<span style="font-family: 'Brush Script MT', cursive; font-size: 1.1em; color: #FF4500;">🔥Your own algorithom</span>**: See [Export your algorithm to ONNX](#export-your-algorithm-to-onnx) in detail.
+  - **<span style="font-family: 'Brush Script MT', cursive; font-size: 1.1em; color: #FF4500;">🔥Your own algorithom</span>**: See [Export your algorithm to ONNX](onnx-export/README.md) in detail.
 
 <a id="quick-start"></a>
 ## 🚀 Quick Start
@@ -71,7 +71,7 @@ You can import our provided [example assets](https://ai4sports.opengvlab.com/mod
 <a id="export-your-algorithm-to-onnx"></a>
 ## 🛠️ Export your algorithm to ONNX
 
-This project supports rendering of various 3DGS/4DGS representations. To achieve this, trained 3D representations need to be exported to the ONNX format. This project provides conversion examples for 4DGS/Dynamic Avatar/Scaffold-GS, see [export instruction](/onnx-export/) for details.
+This project supports rendering of various 3DGS/4DGS representations. To achieve this, trained 3D representations need to be exported to the ONNX format. This project provides conversion examples for 4DGS/Dynamic Avatar/Scaffold-GS, see [export instruction](onnx-export/README.md) for details.
 
 ## 🤝 Contributions & Acknowledgments
 
