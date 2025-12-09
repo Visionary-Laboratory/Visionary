@@ -63,7 +63,7 @@ npm run dev
 ```
 
 After successful startup, visit the following address to view the example:
-👉 **http://localhost:3000/demo/index.html**
+👉 **http://localhost:3000/demo/simple/index.html**
 
 ### 3. Model Assets
 

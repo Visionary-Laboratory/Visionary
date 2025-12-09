@@ -1,0 +1,132 @@
+:root {
+    --font-primary: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", "Helvetica", "Arial", sans-serif;
+    --text-color: #f5f5f7;
+    --bg-color: #000;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-primary);
+    background-color: var(--bg-color);
+    /* Deep elegant gradient: Very dark blue/purple to black */
+    background: radial-gradient(circle at 50% 30%, #1c1c2e 0%, #000000 70%);
+    color: var(--text-color);
+    overflow: hidden; /* Manage scroll manually or via snap */
+}
+
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.5s ease;
+}
+
+#canvas-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: all; /* Allow interaction if needed, or none if just background */
+}
+
+.scroll-container {
+    position: relative;
+    z-index: 10;
+    height: 100vh;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+}
+
+.section {
+    height: 100vh;
+    width: 100%;
+    scroll-snap-align: start;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-sizing: border-box;
+    padding: 0 10%;
+    pointer-events: none; /* Let clicks pass through to canvas if needed, but text needs to be selectable? */
+}
+
+.content {
+    pointer-events: auto;
+    text-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 1s ease, transform 1s ease;
+}
+
+.section.active .content {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.hero-title {
+    font-size: 8rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.cn-title {
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-weight: 400;
+}
+
+.hero-subtitle {
+    font-size: 2rem;
+    font-weight: 400;
+    margin-top: 1rem;
+    color: #a1a1a6;
+}
+
+.right-align {
+    margin-left: auto;
+    text-align: right;
+}
+
+.right-align h2 {
+    font-size: 5rem;
+    margin: 0 0 1rem 0;
+}
+
+.right-align p {
+    font-size: 1.5rem;
+    color: #a1a1a6;
+    margin: 0.5rem 0;
+}
+
+.feature-list {
+    margin-top: 2rem;
+    display: flex;
+    gap: 2rem;
+    justify-content: flex-end;
+}
+
+.feature-item {
+    font-size: 1.2rem;
+    padding: 0.5rem 1rem;
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+}
+
+/* Scrollbar hiding */
+.scroll-container::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+

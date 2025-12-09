@@ -41,3 +41,5 @@ src/VisionaryCore/
 datasets/
 *.tgz
 package-lock.json
+
+models/

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visionary 极目 - 3D Gaussian Splatting Engine</title>
+    <link rel="stylesheet" href="./styles/showcase.css">
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="loader">Loading Visionary Core...</div>
+    </div>
+
+    <!-- Background 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <main class="scroll-container">
+        <!-- Section 1: Welcome -->
+        <section class="section" id="section-welcome">
+            <div class="content">
+                <h1 class="hero-title">Visionary <span class="cn-title">极目</span></h1>
+                <p class="hero-subtitle">Next Generation 3D/4D Gaussian Splatting Platform</p>
+            </div>
+        </section>
+
+        <!-- Section 2: Features -->
+        <section class="section" id="section-features">
+            <div class="content right-align">
+                <h2>4D Gaussian Splatting</h2>
+                <p>Support for ONNX-based 4DGS dynamic scenes.</p>
+                <p>Compatible with PLY, SPLAT, KSPLAT, and most industry formats.</p>
+                <div class="feature-list">
+                    <div class="feature-item">Real-time Rendering</div>
+                    <div class="feature-item">Cross-Platform WebGPU</div>
+                    <div class="feature-item">High Fidelity</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script type="module" src="./scripts/main.ts"></script>
+</body>
+</html>
+
