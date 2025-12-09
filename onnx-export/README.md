@@ -411,43 +411,8 @@ We sincerely thank the authors of the following projects for their wonderful wor
 ## 📚 Citations
 
 If you find these algorithms useful for your research, please consider citing the original papers:
-<details>
-<summary><b>Click to expand BibTeX</b></summary>
 
 ```bibtex
-% LHM (Animatable Avatar)
-@article{lhm,
-  title={LHM},
-  author={The LHM Team},
-  journal={arXiv preprint},
-  year={2023}
-}
-
-% 4D Gaussian Splatting
-@article{wu20234d,
-  title={4d gaussian splatting for real-time dynamic scene rendering},
-  author={Wu, Guanjun and Yi, Taoran and Fang, Jiemin and Xie, Lingxi and Zhang, Xiaopeng and Wei, Wei and Liu, Wenyu and Tian, Qi and Wang, Xinggang},
-  journal={arXiv preprint arXiv:2310.08528},
-  year={2023}
-}
-
-% TiNeuVox (Related to 4DGS)
-@inproceedings{TiNeuVox,
-  author = {Fang, Jiemin and Yi, Taoran and Wang, Xinggang and Xie, Lingxi and Zhang, Xiaopeng and Liu, Wenyu and Nie\ss{}ner, Matthias and Tian, Qi},
-  title = {Fast Dynamic Radiance Fields with Time-Aware Neural Voxels},
-  year = {2022},
-  booktitle = {SIGGRAPH Asia 2022 Conference Papers}
-}
-
-% Scaffold-GS
-@inproceedings{scaffoldgs,
-  title={Scaffold-gs: Structured 3d gaussians for view-adaptive rendering},
-  author={Lu, Tao and Yu, Mulin and Xu, Linning and Xiangli, Yuanbo and Wang, Limin and Lin, Dahua and Dai, Bo},
-  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
-  pages={20654--20664},
-  year={2024}
-}
-
 % 3D Gaussian Splatting (Original)
 @article{kerbl3Dgaussians,
     author = {Kerbl, Bernhard and Kopanas, Georgios and Leimk{\"u}hler, Thomas and Drettakis, George},
@@ -459,4 +424,52 @@ If you find these algorithms useful for your research, please consider citing th
     year = {2023},
     url = {https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/}
 }
+
+% Scaffold-GS
+@inproceedings{scaffoldgs,
+  title={Scaffold-gs: Structured 3d gaussians for view-adaptive rendering},
+  author={Lu, Tao and Yu, Mulin and Xu, Linning and Xiangli, Yuanbo and Wang, Limin and Lin, Dahua and Dai, Bo},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={20654--20664},
+  year={2024}
+}
+
+% Animatable Avatar
+@article{qiu2025lhm,
+  title={Lhm: Large animatable human reconstruction model from a single image in seconds},
+  author={Qiu, Lingteng and Gu, Xiaodong and Li, Peihao and Zuo, Qi and Shen, Weichao and Zhang, Junfei and Qiu, Kejie and Yuan, Weihao and Chen, Guanying and Dong, Zilong and others},
+  journal={arXiv preprint arXiv:2503.10625},
+  year={2025}
+}
+
+@inproceedings{hu2024gauhuman,
+  title={Gauhuman: Articulated gaussian splatting from monocular human videos},
+  author={Hu, Shoukang and Hu, Tao and Liu, Ziwei},
+  booktitle={Proceedings of the IEEE/CVF conference on computer vision and pattern recognition},
+  pages={20418--20431},
+  year={2024}
+}
+
+@article{zhan2025r3,
+  title={R3-Avatar: Record and Retrieve Temporal Codebook for Reconstructing Photorealistic Human Avatars},
+  author={Zhan, Yifan and Xu, Wangze and Zhu, Qingtian and Niu, Muyao and Ma, Mingze and Liu, Yifei and Zhong, Zhihang and Sun, Xiao and Zheng, Yinqiang},
+  journal={arXiv preprint arXiv:2503.12751},
+  year={2025}
+}
+
+% 4D Gaussian Splatting
+@article{wu20234d,
+  title={4d gaussian splatting for real-time dynamic scene rendering},
+  author={Wu, Guanjun and Yi, Taoran and Fang, Jiemin and Xie, Lingxi and Zhang, Xiaopeng and Wei, Wei and Liu, Wenyu and Tian, Qi and Wang, Xinggang},
+  journal={arXiv preprint arXiv:2310.08528},
+  year={2023}
+}
+
+@inproceedings{TiNeuVox,
+  author = {Fang, Jiemin and Yi, Taoran and Wang, Xinggang and Xie, Lingxi and Zhang, Xiaopeng and Liu, Wenyu and Nie\ss{}ner, Matthias and Tian, Qi},
+  title = {Fast Dynamic Radiance Fields with Time-Aware Neural Voxels},
+  year = {2022},
+  booktitle = {SIGGRAPH Asia 2022 Conference Papers}
+}
+
 ```

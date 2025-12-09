@@ -13,7 +13,7 @@
 
 **Visionary: 基于 WebGPU 高斯泼溅平台构建的世界模型载体**
 
-[VisionaryEditor](https://editor-url-placeholder) | [在线文档](https://your-docs-url.com) | [快速开始](#快速开始) | [常见问题](#faq)
+[VisionaryEditor](https://editor-url-placeholder) | [在线文档](https://your-docs-url.com) | [快速开始](#快速开始) | [Issues](https://github.com/Visionary-Laboratory/visionary/issues)
 
 </div>
 
@@ -21,7 +21,10 @@
 
 > **TL;DR:** Visionary 是一个基于 WebGPU 和 ONNX Runtime 构建的开放、原生 Web 平台。它支持直接在浏览器中实时渲染多种 Gaussian Splatting 变体（3DGS、4DGS、Avatars）。
 
-> **Abstract:** 神经渲染，特别是 3D Gaussian Splatting (3DGS)，发展迅速并已成为构建世界模型的关键组件。在这项工作中，我们推出了 Visionary，一个开放的原生 Web 平台，用于实时渲染各种 Gaussian Splatting 和网格。Visionary 基于高效的 WebGPU 渲染器和逐帧 ONNX 推理构建，能够在保持轻量级、"点击即运行"的浏览器体验的同时，实现动态神经处理。它引入了标准化的 Gaussian Generator 契约，不仅支持标准 3DGS 渲染，还允许即插即用的算法在每帧生成或更新高斯体。这种推理能力也使我们能够应用前馈生成式后处理。该平台进一步提供了一个插件式的 three.js 库，并具有简洁的 TypeScript API，可无缝集成到现有的 Web 应用程序中。实验表明，在相同的 3DGS 资产下，由于基于 GPU 的图元排序，Visionary 实现了优于当前 Web 查看器的渲染效率。它已经支持多种变体，包括基于 MLP 的 3DGS、4DGS、神经 Avatar 以及风格迁移或增强网络。通过直接在浏览器中统一推理和渲染，Visionary 显著降低了 3DGS 系列方法的复现、比较和部署门槛，作为一个统一的世界模型载体，服务于重建和生成范式。
+<details>
+<summary><b>Abstract</b></summary>
+神经渲染，特别是 3D Gaussian Splatting (3DGS)，发展迅速并已成为构建世界模型的关键组件。在这项工作中，我们推出了 Visionary，一个开放的原生 Web 平台，用于实时渲染各种 Gaussian Splatting 和网格。Visionary 基于高效的 WebGPU 渲染器和逐帧 ONNX 推理构建，能够在保持轻量级、"点击即运行"的浏览器体验的同时，实现动态神经处理。它引入了标准化的 Gaussian Generator 契约，不仅支持标准 3DGS 渲染，还允许即插即用的算法在每帧生成或更新高斯体。这种推理能力也使我们能够应用前馈生成式后处理。该平台进一步提供了一个插件式的 three.js 库，并具有简洁的 TypeScript API，可无缝集成到现有的 Web 应用程序中。实验表明，在相同的 3DGS 资产下，由于基于 GPU 的图元排序，Visionary 实现了优于当前 Web 查看器的渲染效率。它已经支持多种变体，包括基于 MLP 的 3DGS、4DGS、神经 Avatar 以及风格迁移或增强网络。通过直接在浏览器中统一推理和渲染，Visionary 显著降低了 3DGS 系列方法的复现、比较和部署门槛，作为一个统一的世界模型载体，服务于重建和生成范式。
+</details>
 
 此外，我们还提供了一个功能强大的 [在线编辑器](https://editor-url-placeholder)，帮助用户轻松管理和编辑 3D 场景。
 
@@ -35,6 +38,7 @@
   - **静态高斯**: PLY, SPLAT, KSplat, SPZ, SOG
   - **标准模型**: GLB, GLTF, FBX, OBJs
   - **4DGS/Avatar/scaffold-GS**: ONNX
+  - **自定义算法**: 详见 [导出算法至 ONNX](#导出算法至-onnx)。
 
 ## 🚀 快速开始
 
@@ -64,9 +68,9 @@ npm run dev
 
 可以在页面中导入我们提供的[示例资产](https://ai4sports.opengvlab.com/models/trex.onnx)，或自己的3DGS/4DGS资产。4DGS资产制作详见[转化ONNX格式](#转化ONNX格式)。
 
-## 🧠 转化ONNX格式
+## 🛠️ 导出算法至 ONNX
 
-本项目支持多种3DGS/4DGS表示的渲染，要做到这一点，需要将训练好的3D表示导出为 ONNX 格式。本项目提供了4DGS/动态Avatar/scaffold-GS的转化示例，详见[/examples](examples/)。
+本项目支持多种 3DGS/4DGS 表示的渲染。要做到这一点，需要将训练好的 3D 表示导出为 ONNX 格式。本项目提供了 4DGS/Dynamic Avatar/Scaffold-GS 的转换示例，详见[导出说明](/onnx-export/)。
 
 ## 🤝 贡献与致谢
 

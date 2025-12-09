@@ -13,7 +13,7 @@
 
 **Visionary: The World Model Carrier Built on WebGPU-Powered Gaussian Splatting Platform**
 
-[VisionaryEditor](https://editor-url-placeholder) | [Online Docs](https://your-docs-url.com) | [Quick Start](#quick-start) | [FAQ](#faq)
+[Project Page](https://ai4sports.opengvlab.com/) | [Document](https://your-docs-url.com) | [Quick Start](#quick-start) | [Issues](https://github.com/Visionary-Laboratory/visionary/issues)
 
 </div>
 
@@ -21,9 +21,12 @@
 
 > **TL;DR:** Visionary is an open, web-native platform built on WebGPU and ONNX Runtime. Enabling real-time rendering of diverse Gaussian Splatting variants (3DGS, 4DGS, Avatars) directly in the browser.
 
-> **Abstract:** Neural rendering, particularly 3D Gaussian Splatting (3DGS), has evolved rapidly and become a key component for building world models. In this work, we present Visionary, an open, web-native platform for real-time various Gaussian Splatting and meshes rendering. Built on an efficient WebGPU renderer with per-frame ONNX inference, Visionary enables dynamic neural processing while maintaining a lightweight, "click-to-run" browser experience. It introduces a standardized Gaussian Generator contract, which not only supports standard 3DGS rendering but also allows plug-and-play algorithms to generate or update Gaussians each frame. Such inference also enables us to apply feedforward generative post-processing. The platform further offers a plug in three.js library with a concise TypeScript API for seamless integration into existing web applications. Experiments show that, under identical 3DGS assets, Visionary achieves superior rendering efficiency compared to current Web viewers due to GPU-based primitive sorting. It already supports multiple variants, including MLP-based 3DGS, 4DGS, neural avatars, and style transformation or enhancement networks. By unifying inference and rendering directly in the browser, Visionary significantly lowers the barrier to reproduction, comparison, and deployment of 3DGS-family methods, serving as a unified World Model Carrier for both reconstructive and generative paradigms.
+<details>
+<summary><b>Abstract</b></summary>
+Neural rendering, particularly 3D Gaussian Splatting (3DGS), has evolved rapidly and become a key component for building world models. In this work, we present Visionary, an open, web-native platform for real-time various Gaussian Splatting and meshes rendering. Built on an efficient WebGPU renderer with per-frame ONNX inference, Visionary enables dynamic neural processing while maintaining a lightweight, "click-to-run" browser experience. It introduces a standardized Gaussian Generator contract, which not only supports standard 3DGS rendering but also allows plug-and-play algorithms to generate or update Gaussians each frame. Such inference also enables us to apply feedforward generative post-processing. The platform further offers a plug in three.js library with a concise TypeScript API for seamless integration into existing web applications. Experiments show that, under identical 3DGS assets, Visionary achieves superior rendering efficiency compared to current Web viewers due to GPU-based primitive sorting. It already supports multiple variants, including MLP-based 3DGS, 4DGS, neural avatars, and style transformation or enhancement networks. By unifying inference and rendering directly in the browser, Visionary significantly lowers the barrier to reproduction, comparison, and deployment of 3DGS-family methods, serving as a unified World Model Carrier for both reconstructive and generative paradigms.
+</details>
 
-Additionally, we provide a powerful [Online Editor](https://editor-url-placeholder) to help users easily manage and edit 3D scenes.
+Additionally, we provide a powerful [Online Editor](https://ai4sports.opengvlab.com/index_visionary.html) to help users easily manage and edit 3D scenes.
 
 ![Teaser](teaser.png)
 
@@ -35,38 +38,11 @@ Additionally, we provide a powerful [Online Editor](https://editor-url-placehold
   - **Static Gaussians**: PLY, SPLAT, KSplat, SPZ, SOG
   - **Standard Mesh Models**: GLB, GLTF, FBX, OBJ
   - **4DGS/Avatar/scaffold-GS**: ONNX
+  - **Your own algorithom**: See [Export your algorithm to ONNX](##Export your algorithm to ONNX) in detail.
 
-## 🚀 Quick Start
+## 🛠️ Export your algorithm to ONNX
 
-### 1. Install Dependencies
-
-Ensure that [Node.js](https://nodejs.org/) (v18+ recommended) is installed in your environment.
-
-```bash
-# Clone the repository
-git clone https://github.com/Visionary-Laboratory/visionary.git
-cd visionary
-
-# Install dependencies
-npm install
-```
-
-### 2. Start Development Server
-
-```bash
-npm run dev
-```
-
-After successful startup, visit the following address to view the example:
-👉 **http://localhost:3000/demo/index.html**
-
-### 3. Model Assets
-
-You can import our provided [example assets](https://ai4sports.opengvlab.com/models/trex.onnx) or your own 3DGS/4DGS assets in the page. For details on creating 4DGS assets, see [Convert to ONNX](#convert-to-onnx).
-
-## 🧠 Convert to ONNX
-
-This project supports rendering of various 3DGS/4DGS representations. To achieve this, trained 3D representations need to be exported to the ONNX format. This project provides conversion examples for 4DGS/Dynamic Avatar/Scaffold-GS, see [/examples](/examples/) for details.
+This project supports rendering of various 3DGS/4DGS representations. To achieve this, trained 3D representations need to be exported to the ONNX format. This project provides conversion examples for 4DGS/Dynamic Avatar/Scaffold-GS, see [export instruction](/onnx-export/) for details.
 
 ## 🤝 Contributions & Acknowledgments
 
