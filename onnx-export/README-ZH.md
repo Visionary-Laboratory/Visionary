@@ -1,5 +1,16 @@
 # 🚀 Visionary: 数据准备与 ONNX 导出指南
 
+<!-- 本统一指南涵盖了为 Visionary Viewer 准备、训练和导出的流程。 -->
+
+Visionary 基于标准化的 **Gaussian Generator** 协议：只要你的 3DGS 系列算法（经典 / 结构化 / 4DGS、Avatar，或任意自定义变体）能导出 ONNX 并输出逐帧的高斯属性（位置、尺度、旋转、颜色等），就可以在无需修改 WebGPU 渲染器或着色器的情况下接入查看器。本文档中的各个流水线（Avatar、4DGS、Scaffold-GS 等）可作为参考实现，你可以将它们当作模板把自己的方法适配到 Visionary 运行时。
+
+为了让你的 Gaussian Generator 在 Visionary 上高效运行，推荐一些针对 WebGPU 运行时的 ONNX 导出实用技巧：
+
+- **导出便于图捕获的模型。** 尽量避免动态控制流和高度动态的张量形状，使 ONNX Runtime WebGPU 能启用 graph capture。保持稳定图（固定 batch/序列形状、无 Python/Loop 风格算子、无奇异 dtype）能在捕获后显著提速。
+- **遵循下文示例的索引模式。** 在切片或索引高斯属性（位置、尺度、旋转、颜色等）时，尽量复用文档中参考流水线的索引策略，保持内存布局连续并与 WebGPU kernel 及后处理工具兼容。
+- **用手写实现替换内置 Norm 算子。** ONNX Runtime 的 WebGPU 后端在 Norm、LayerNormalization、RMSNorm 上存在已知问题和性能差异，建议导出前改写为基础算子组合（如 `ReduceMean` + `Sub` + `Mul` + `Add`），或导出后用预处理脚本替换。
+- **避免巨型单个 `Concat` / `Split`。** WebGPU shader 受资源绑定数量限制，如果模型有非常大的 `Concat` 或 `Split`（大量输入/输出），请拆成多段 `Concat`/`Split` 再合并，可提升编译稳定性。
+
 本统一指南涵盖了为 **Visionary Viewer** 准备、训练和导出数据的流程。它包括针对可动画化 Avatar、动态场景 (4DGS)、结构化静态场景 (Scaffold-GS) 和通用格式转换的说明。
 
 ## 📋 目录

@@ -1,6 +1,28 @@
 # 🚀 Visionary: Data Preparation & ONNX Export Guide
 
+<!-- This unified guide covers the pipeline for preparing, training, and exporting data for the **Visionary Viewer**. It includes instructions for Animatable Avatars, Dynamic Scenes (4DGS), Structured Static Scenes (Scaffold-GS), and general format conversions. -->
+
+
+Visionary is built around a standardized **Gaussian Generator** contract: as long as your 3DGS-family algorithm (e.g., classic / structured / 4DGS, avatars, or any custom variant) can be exported to ONNX and outputs per-frame Gaussian attributes (position, scale, rotation, color, etc.), it can be plugged into the viewer without modifying the WebGPU renderer or shaders. The pipelines in this document (Animatable Avatar, 4DGS, Scaffold-GS, etc.) are provided as reference implementations, and you can treat them as templates when adapting your own method to the Visionary runtime.
+
 This unified guide covers the pipeline for preparing, training, and exporting data for the **Visionary Viewer**. It includes instructions for Animatable Avatars, Dynamic Scenes (4DGS), Structured Static Scenes (Scaffold-GS), and general format conversions.
+
+
+To make your own Gaussian Generator run efficiently on Visionary, we recommend a few practical ONNX export tips for the WebGPU runtime:
+
+- **Export a graph-capture-friendly model.**  
+  Try to avoid dynamic control flow and highly dynamic tensor shapes so that ONNX Runtime WebGPU can enable graph capture. A “stable” graph (fixed batch/sequence shapes, no Python/Loop-style ops, no exotic dtypes) will run significantly faster once captured and reused across frames.
+
+- **Follow the indexing patterns used in the examples below.**  
+  When you slice or index Gaussian attributes (positions, scales, rotations, colors, etc.), mirror the indexing strategy from the reference pipelines in this repo. This keeps the layout contiguous and compatible with our WebGPU kernels and post-processing utilities.
+
+- **Replace built-in Norm ops with manual implementations.**  
+  ONNX Runtime’s current WebGPU backend has known issues and performance quirks around Norm, LayerNormalization, RMSNorm. We strongly recommend exporting models where these norms have been rewritten into primitive ops (e.g., `ReduceMean` + `Sub` + `Mul` + `Add`), or using a preprocessing script to replace them before deployment.
+
+- **Avoid huge single `Concat` / `Split` nodes.**  
+  WebGPU shaders have limits on the number of resource bindings/slots. If your model uses very large `Concat` or `Split` ops over many inputs/outputs, break them into several smaller `Concat`/`Split` stages and then merge the results. This helps the WebGPU compiler stay within resource limits and improves stability.
+
+
 
 ## 📋 Table of Contents
 1. [Animatable Avatar (SMPL-X based)](#1-animatable-avatar-onnx-model)

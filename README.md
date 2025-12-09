@@ -13,7 +13,7 @@
 <h1 style="font-size:32px; margin: 6px 0 4px 0;">Visionary: The World Model Carrier Built on WebGPU-Powered Gaussian Splatting Platform</h1>
 <p style="margin: 0 0 12px 0; font-size: 14px;">Shanghai AI Laboratory · Sichuan University · The University of Tokyo · Shanghai Jiao Tong University · Northwestern Polytechnical University</p>
 
-[Project Page](https://ai4sports.opengvlab.com/) | [Paper](https://ai4sports-shanghai.oss-cn-shanghai.aliyuncs.com/webpage/visionary_page/Visionary-arXiv.pdf) | Document(Coming Soon!)
+[Project Page](https://ai4sports.opengvlab.com/) | [Paper](https://ai4sports-shanghai.oss-cn-shanghai.aliyuncs.com/webpage/visionary_page/Visionary-arXiv.pdf) | [Video](https://youtu.be/-K8EjMfk09c) | Document
 
 </div>
 
@@ -67,12 +67,12 @@ After successful startup, visit the following address to view the example:
 
 ### 3. Model Assets
 
-You can import our provided [example assets](https://ai4sports.opengvlab.com/models/trex.onnx) or your own 3DGS/4DGS assets in the page. For details on creating 4DGS assets, see [Convert to ONNX](#convert-to-onnx).
+You can import our provided example assets [ (1)](https://drive.google.com/drive/folders/1nk5slXl-_-jRyDggXoBpRwz2VajmQizQ?usp=drive_link)[ (2)](https://drive.google.com/file/d/1qRYffgZxNyiJrh9mwwjEOr3uoxcbll0Q/view?usp=share_link)[ (3)](https://drive.google.com/file/d/1F4XGS1W4c3Kc13n4YaoDNxnWZqOfvlBJ/view?usp=share_link) or your own 3DGS/4DGS/Avater assets in the page. For details on creating 4DGS/Avater/Custom assets, see [Convert to ONNX](#convert-to-onnx). 
 
 <a id="export-your-algorithm-to-onnx"></a>
 ## 🛠️ Export your algorithm to ONNX
 
-This project supports rendering of various 3DGS/4DGS representations. To achieve this, trained 3D representations need to be exported to the ONNX format. This project provides conversion examples for 4DGS/Dynamic Avatar/Scaffold-GS, see [export instruction](onnx-export/README.md) for details.
+This project supports rendering of various 3DGS/4DGS/Avater/Custom representations. To achieve this, trained 3D representations need to be exported to the ONNX format. This project provides conversion examples for 4DGS/Dynamic Avatar/Scaffold-GS, see [export instruction](onnx-export/README.md) for details.
 
 ## 🤝 Contributions & Acknowledgments
 
