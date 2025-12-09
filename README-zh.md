@@ -46,7 +46,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/your-username/Visionary-PrePublic.git
+git clone https://github.com/Visionary-Laboratory/visionary.git
 cd Visionary-PrePublic
 
 # 安装依赖
@@ -60,7 +60,7 @@ npm run dev
 ```
 
 启动成功后，访问以下地址查看示例：
-👉 **http://localhost:8901/demo/index.html**
+👉 **http://localhost:3000/demo/index.html**
 
 ### 3. 模型资产
 
@@ -68,7 +68,7 @@ npm run dev
 
 ## 🧠 转化ONNX格式
 
-本项目支持多种3DGS/4DGS表示的渲染，要做到这一点，需要将训练好的3D表示导出为 ONNX 格式。本项目提供了4DGS/动态Avatar/scaffold-GS的转化示例，详见[/examples](examples/README-ZH.md)。
+本项目支持多种3DGS/4DGS表示的渲染，要做到这一点，需要将训练好的3D表示导出为 ONNX 格式。本项目提供了4DGS/动态Avatar/scaffold-GS的转化示例，详见[/examples](examples/)。
 
 ## 🤝 贡献与致谢
 
