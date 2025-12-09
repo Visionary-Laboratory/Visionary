@@ -40,6 +40,7 @@ Additionally, we provide a powerful [Online Editor](https://ai4sports.opengvlab.
   - **4DGS/Avatar/scaffold-GS**: ONNX
   - **Your own algorithom**: See [Export your algorithm to ONNX](#export-your-algorithm-to-onnx) in detail.
 
+<a id="quick-start"></a>
 ## 🚀 Quick Start
 
 ### 1. Install Dependencies
@@ -68,6 +69,7 @@ After successful startup, visit the following address to view the example:
 
 You can import our provided [example assets](https://ai4sports.opengvlab.com/models/trex.onnx) or your own 3DGS/4DGS assets in the page. For details on creating 4DGS assets, see [Convert to ONNX](#convert-to-onnx).
 
+<a id="export-your-algorithm-to-onnx"></a>
 ## 🛠️ Export your algorithm to ONNX
 
 This project supports rendering of various 3DGS/4DGS representations. To achieve this, trained 3D representations need to be exported to the ONNX format. This project provides conversion examples for 4DGS/Dynamic Avatar/Scaffold-GS, see [export instruction](/onnx-export/) for details.

@@ -40,6 +40,7 @@
   - **4DGS/Avatar/scaffold-GS**: ONNX
   - **自定义算法**: 详见 [导出算法至 ONNX](#导出算法至-onnx)。
 
+<a id="快速开始"></a>
 ## 🚀 快速开始
 
 ### 1. 安装依赖
@@ -68,6 +69,7 @@ npm run dev
 
 可以在页面中导入我们提供的[示例资产](https://ai4sports.opengvlab.com/models/trex.onnx)，或自己的3DGS/4DGS资产。4DGS资产制作详见[转化ONNX格式](#转化ONNX格式)。
 
+<a id="导出算法至-onnx"></a>
 ## 🛠️ 导出算法至 ONNX
 
 本项目支持多种 3DGS/4DGS 表示的渲染。要做到这一点，需要将训练好的 3D 表示导出为 ONNX 格式。本项目提供了 4DGS/Dynamic Avatar/Scaffold-GS 的转换示例，详见[导出说明](/onnx-export/)。
