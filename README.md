@@ -29,14 +29,12 @@ Additionally, we provide a powerful [Online Editor](https://editor-url-placehold
 
 ## ✨ Core Features
 
-- **🚀 Native WebGPU Powered**: Utilizes `three/webgpu` and a custom Compute Shader rasterizer to achieve high-performance parallel sorting and rendering of millions of Gaussian particles.
+- **🚀 Native WebGPU Powered**: Utilizes `webgpu` to achieve high-performance parallel sorting and rendering of millions of Gaussian particles.
 - **🎨 Hybrid Rendering Architecture**: Automatically handles depth mixing (Depth Compositing) between Gaussian point clouds and standard Meshes, perfectly solving occlusion issues and supporting complex scene compositions.
 - **📦 Universal Asset Loader**: Single interface to intelligently identify and load multiple formats:
   - **Static Gaussians**: PLY, SPLAT, KSplat, SPZ, SOG
-  - **Standard Models**: GLB, GLTF, FBX, OBJ
+  - **Standard Mesh Models**: GLB, GLTF, FBX, OBJ
   - **Dynamic Gaussians or Avater**: ONNX
-- **🧠 Powerful AI Inference**: Deeply integrated with **ONNX Runtime Web (ORT)** to support real-time decoding and playback of dynamic Gaussian models. 
-- **🛠️ Developer Friendly**: Provides a modular API based on TypeScript, easy to integrate into existing Web applications.
 
 ## 🚀 Quick Start
 
