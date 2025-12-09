@@ -6,7 +6,7 @@ public/scenes
 *.npz
 *.npy
 *.model
-**/*.png
+!teaser.png
 node_modules/
 *.exr
 *.DS_Store# Ignore docs and TestModel 

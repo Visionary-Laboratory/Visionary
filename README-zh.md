@@ -19,13 +19,13 @@
 
 ---
 
-**Visionary** 是一个基于 **WebGPU** 和 **onnx-runtime** 技术构建的高性能沉浸式 Web 3D 渲染引擎。
+> **TL;DR:** Visionary 是一个基于 WebGPU 和 ONNX Runtime 构建的开放、原生 Web 平台。它支持直接在浏览器中实时渲染多种 Gaussian Splatting 变体（3DGS、4DGS、Avatars）。
 
-它旨在打破传统 3D 网格与新兴点云渲染技术的界限，通过独创的 **混合渲染管线 (Hybrid Rendering Pipeline)**，实现在同一 WebGPU 上下文中无缝融合标准 3D 模型（GLB/GLTF）与高保真 Gaussian Splatting（3DGS/4DGS）内容，并提供统一的深度遮挡与光照处理。
+> **Abstract:** 神经渲染，特别是 3D Gaussian Splatting (3DGS)，发展迅速并已成为构建世界模型的关键组件。在这项工作中，我们推出了 Visionary，一个开放的原生 Web 平台，用于实时渲染各种 Gaussian Splatting 和网格。Visionary 基于高效的 WebGPU 渲染器和逐帧 ONNX 推理构建，能够在保持轻量级、"点击即运行"的浏览器体验的同时，实现动态神经处理。它引入了标准化的 Gaussian Generator 契约，不仅支持标准 3DGS 渲染，还允许即插即用的算法在每帧生成或更新高斯体。这种推理能力也使我们能够应用前馈生成式后处理。该平台进一步提供了一个插件式的 three.js 库，并具有简洁的 TypeScript API，可无缝集成到现有的 Web 应用程序中。实验表明，在相同的 3DGS 资产下，由于基于 GPU 的图元排序，Visionary 实现了优于当前 Web 查看器的渲染效率。它已经支持多种变体，包括基于 MLP 的 3DGS、4DGS、神经 Avatar 以及风格迁移或增强网络。通过直接在浏览器中统一推理和渲染，Visionary 显著降低了 3DGS 系列方法的复现、比较和部署门槛，作为一个统一的世界模型载体，服务于重建和生成范式。
 
 此外，我们还提供了一个功能强大的 [在线编辑器](https://editor-url-placeholder)，帮助用户轻松管理和编辑 3D 场景。
 
-![Teaser](teaser.pdf)
+![Teaser](teaser.png)
 
 ## ✨ 核心特性
 
