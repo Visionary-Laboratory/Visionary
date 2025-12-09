@@ -31,7 +31,7 @@ We have developed a powerful [Online Editor](https://ai4sports.opengvlab.com/ind
 
 ## ✨ Features
 
-- **🚀 Native WebGPU Powered**: Utilizes `webgpu` to achieve high-performance parallel sorting and rendering of millions of Gaussian particles.
+- **⚡️ Native WebGPU Powered**: Utilizes `webgpu` to achieve high-performance parallel sorting and rendering of millions of Gaussian particles.
 - **🎨 Hybrid Rendering Architecture**: Automatically handles depth mixing (Depth Compositing) between Gaussian point clouds and standard Meshes, perfectly solving occlusion issues and supporting complex scene compositions.
 - **📦 Universal Asset Loader**: Single interface to intelligently identify and load multiple formats:
   - **Static Gaussians**: PLY, SPLAT, KSplat, SPZ, SOG
