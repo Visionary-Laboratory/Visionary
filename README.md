@@ -10,7 +10,8 @@
 
 [English](README.md) | [中文](README-zh.md)
 
-**Visionary: The World Model Carrier Built on WebGPU-Powered Gaussian Splatting Platform**
+<h1 style="font-size:32px; margin: 6px 0 4px 0;">Visionary: The World Model Carrier Built on WebGPU-Powered Gaussian Splatting Platform</h1>
+<p style="margin: 0 0 12px 0; font-size: 14px;">Shanghai AI Laboratory · Sichuan University · The University of Tokyo · Shanghai Jiao Tong University · Northwestern Polytechnical University</p>
 
 [Project Page](https://ai4sports.opengvlab.com/) | [Paper](https://arxiv.org/) | [Document](https://your-docs-url.com)
 

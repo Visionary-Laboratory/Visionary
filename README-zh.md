@@ -11,7 +11,8 @@
 
 [English](README.md) | [中文](README-zh.md)
 
-**Visionary: 基于 WebGPU 高斯泼溅平台构建的世界模型载体**
+<h1 style="font-size:32px; margin: 6px 0 4px 0;">Visionary: 基于 WebGPU 高斯泼溅平台构建的世界模型载体</h1>
+<p style="margin: 0 0 12px 0; font-size: 14px;">Shanghai AI Laboratory · Sichuan University · The University of Tokyo · Shanghai Jiao Tong University · Northwestern Polytechnical University</p>
 
 [项目主页](https://ai4sports.opengvlab.com/) | [论文链接](https://arxiv.org/) | [在线文档](https://your-docs-url.com)
 
