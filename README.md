@@ -28,7 +28,7 @@ Neural rendering, particularly 3D Gaussian Splatting (3DGS), has evolved rapidly
 
 We have developed a powerful [Online Editor](https://ai4sports.opengvlab.com/index_visionary.html) based on Visionary to help users easily manage and edit 3D scenes in one click. If you want to develop your own web project using this project, please refer to [Quick Start](#quick-start).
 
-[![Visionary Demo](https://img.youtube.com/vi/-K8EjMfk09c/hqdefault.jpg)](https://www.youtube.com/watch?v=-K8EjMfk09c)
+[![Visionary Demo](https://img.youtube.com/vi/-K8EjMfk09c/maxresdefault.jpg)](https://www.youtube.com/watch?v=-K8EjMfk09c)
 
 ## ✨ Features
 
