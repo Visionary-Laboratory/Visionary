@@ -13,7 +13,7 @@
 <h1 style="font-size:32px; margin: 6px 0 4px 0;">Visionary: The World Model Carrier Built on WebGPU-Powered Gaussian Splatting Platform</h1>
 <p style="margin: 0 0 12px 0; font-size: 14px;">Shanghai AI Laboratory · Sichuan University · The University of Tokyo · Shanghai Jiao Tong University · Northwestern Polytechnical University</p>
 
-[Project Page](https://visionary-laboratory.github.io/visionary/) | [Paper](https://arxiv.org/abs/2512.08478) | [Video](https://youtu.be/-K8EjMfk09c) | [WebGPU Issues](https://github.com/Visionary-Laboratory/visionary/issues/1) | Document
+[Project Page](https://visionary-laboratory.github.io/visionary/) | [Paper](https://arxiv.org/abs/2512.08478) | [Video](https://youtu.be/-K8EjMfk09c) | [WebGPU Issues](https://github.com/Visionary-Laboratory/visionary/issues/1) | [Document](https://ai4sports.opengvlab.com/help/index.html) 
 
 </div>
 
