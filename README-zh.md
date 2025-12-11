@@ -25,7 +25,7 @@
 神经渲染，特别是 3D Gaussian Splatting (3DGS)，发展迅速并已成为构建世界模型的关键组件。在这项工作中，我们推出了 Visionary，一个开放的原生 Web 平台，用于实时渲染各种 Gaussian Splatting 和网格。Visionary 基于高效的 WebGPU 渲染器和逐帧 ONNX 推理构建，能够在保持轻量级、"点击即运行"的浏览器体验的同时，实现动态神经处理。它引入了标准化的 Gaussian Generator 契约，不仅支持标准 3DGS 渲染，还允许即插即用的算法在每帧生成或更新高斯体。这种推理能力也使我们能够应用前馈生成式后处理。该平台进一步提供了一个插件式的 three.js 库，并具有简洁的 TypeScript API，可无缝集成到现有的 Web 应用程序中。实验表明，在相同的 3DGS 资产下，由于基于 GPU 的图元排序，Visionary 实现了优于当前 Web 查看器的渲染效率。它已经支持多种变体，包括基于 MLP 的 3DGS、4DGS、神经 Avatar 以及风格迁移或增强网络。通过直接在浏览器中统一推理和渲染，Visionary 显著降低了 3DGS 系列方法的复现、比较和部署门槛，作为一个统一的世界模型引擎，服务于重建和生成范式。
 </details>
 
-我们基于 Visionary 开发了一个功能强大的 [在线编辑器](https://ai4sports.opengvlab.com/index_visionary.html)，帮助用户一键轻松管理和编辑 3D 场景。如果想用本项目开发自己的 Web 项目，请参考 [快速开始](#quick-start)。
+我们基于 Visionary 开发了一个功能强大的 [在线编辑器](https://visionary-laboratory.github.io/visionary/index_visionary.html)，帮助用户一键轻松管理和编辑 3D 场景。如果想用本项目开发自己的 Web 项目，请参考 [快速开始](#quick-start)。
 
 https://github.com/user-attachments/assets/6824de84-e4db-4c3f-90e8-1061ff309579
 
