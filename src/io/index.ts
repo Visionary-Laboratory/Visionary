@@ -24,6 +24,10 @@ export interface GaussianDataSource extends DataSource {
   gaussianBuffer(): ArrayBuffer;
   /** Get spherical harmonics coefficients buffer */
   shCoefsBuffer(): ArrayBuffer;
+  /** Optional extra per-GS PCA buffer (vec3 packed as vec4) */
+  extraPcaBuffer?(): ArrayBuffer;
+  /** Optional per-point weight buffer (64 channels, float32) */
+  weightBuffer?(): ArrayBuffer;
   /** Number of points in the dataset */
   numPoints(): number;
   /** Spherical harmonics degree */
@@ -138,6 +142,9 @@ export {
   ThreeJSPLYLoaderAdapter,
   createThreeJSAdapters 
 } from './threejs_adapters';
+
+// Weight-only loader
+export { WeightPLYLoader, WeightPLYData } from './weight_ply_loader';
 
 // ============= Export Universal Loader (if exists) =============
 export { UniversalLoader, createUniversalLoader, defaultLoader } from './universal_loader';

@@ -104,6 +104,23 @@ async function main() {
         }
     );
 
+    // 示例后处理：轻微提饱和 + 暗角
+    if (gaussianThreeJSRenderer) {
+        gaussianThreeJSRenderer.setPostProcessEnabled(true);
+        gaussianThreeJSRenderer.setPostProcessShader(`
+            @fragment
+            fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
+                let color = textureSample(sourceTexture, sourceSampler, uv);
+                let centered = uv - vec2f(0.5, 0.5);
+                let vignette = clamp(1.0 - dot(centered, centered) * 1.8, 0.0, 1.0);
+                let luma = dot(color.rgb, vec3f(0.299, 0.587, 0.114));
+                let sat = 1.15;
+                let rgb = vec3f(luma) + (color.rgb - vec3f(luma)) * sat;
+                return vec4f(rgb * vignette, color.a);
+            }
+        `);
+    }
+
     window.addEventListener("resize", () => {
         const width = canvasElement.clientWidth;
         const height = canvasElement.clientHeight;

@@ -246,6 +246,14 @@ export class FileLoader {
     // Create point cloud from GaussianDataSource
     // The PointCloud constructor should accept GaussianDataSource
     const pc = new PointCloud(device, gaussianData);
+
+    if (typeof gaussianData.weightBuffer === 'function') {
+      const weightBuf = gaussianData.weightBuffer();
+      if (weightBuf && weightBuf.byteLength > 0) {
+        const weightArray = new Float32Array(weightBuf);
+        pc.setWeightBufferFromArray(device, weightArray, 64);
+      }
+    }
     
     // Generate unique name if needed
     const uniqueName = this.modelManager.generateUniqueName(name);

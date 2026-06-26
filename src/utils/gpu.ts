@@ -105,7 +105,7 @@ export class GPUStopwatch {
     });
 
     this.queryBuffer = device.createBuffer({
-      size: BigInt(pairs * 2 * 8) as unknown as number, // bytes for u64 timestamps
+      size: pairs * 2 * 8, // bytes for u64 timestamps (number, not BigInt)
       usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.MAP_READ,
       mappedAtCreation: false,
       label: "query set buffer",

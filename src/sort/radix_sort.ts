@@ -62,6 +62,8 @@ export interface PointCloudSortStuff extends SortedSplats {
     // Ping-pong buffers for payloads (e.g., original indices)
     payload_a: GPUBuffer;
     payload_b: GPUBuffer;
+    // Mapping from sorted slot -> source point index
+    source_indices: GPUBuffer;
 }
 
 function shuffleArray(array: any[]) {
@@ -257,13 +259,18 @@ export class GPURSSorter implements ISorter {
     public createSortStuff(device: GPUDevice, numPoints: number): PointCloudSortStuff {
         const { key_a, key_b, payload_a, payload_b } = this.createKeyvalBuffers(device, numPoints, 4);
         const internal_mem = this.createInternalMemBuffer(device, numPoints);
+        const source_indices = device.createBuffer({
+            label: "Radix sort source indices",
+            size: Math.max(1, numPoints) * 4,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
         
         const { sorter_uni, sorter_dis, sorter_bg } = this.createBindGroup(
             device, numPoints, internal_mem, key_a, key_b, payload_a, payload_b
         );
 
         const sorter_render_bg = this.createRenderBindGroup(device, sorter_uni, payload_a);
-        const sorter_bg_pre = this.createPreprocessBindGroup(device, sorter_uni, sorter_dis, key_a, payload_a);
+        const sorter_bg_pre = this.createPreprocessBindGroup(device, sorter_uni, sorter_dis, key_a, payload_a, source_indices);
 
         return {
             numPoints,
@@ -279,7 +286,8 @@ export class GPURSSorter implements ISorter {
             key_a,
             key_b,
             payload_a,
-            payload_b
+            payload_b,
+            source_indices
         };
     }
 
@@ -349,10 +357,11 @@ export class GPURSSorter implements ISorter {
         return device.createBindGroupLayout({
             label: "Radix Sort Preprocess Bind Group Layout",
             entries: [
-                { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } },
-                { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } },
-                { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } },
-                { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } },
+                { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // infos
+                { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // keyval_a
+                { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // payload_a
+                { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // dispatch_buffer
+                { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // source_indices
             ],
         });
     }
@@ -525,7 +534,8 @@ export class GPURSSorter implements ISorter {
         uniform_buffer: GPUBuffer,
         dispatch_buffer: GPUBuffer,
         keyval_a: GPUBuffer,
-        payload_a: GPUBuffer
+        payload_a: GPUBuffer,
+        source_indices: GPUBuffer
     ): GPUBindGroup {
         return device.createBindGroup({
             label: "Preprocess bind group",
@@ -535,6 +545,7 @@ export class GPURSSorter implements ISorter {
                 { binding: 1, resource: { buffer: keyval_a } },
                 { binding: 2, resource: { buffer: payload_a } },
                 { binding: 3, resource: { buffer: dispatch_buffer } },
+                { binding: 4, resource: { buffer: source_indices } },
             ],
         });
     }

@@ -219,6 +219,7 @@ export class GaussianPreprocessor implements IPreprocessor {
         { binding: 1, resource: { buffer: pcBuf.shBuffer } },
         { binding: 2, resource: { buffer: args.global.splat2D } }, // 全局输出
         { binding: 3, resource: { buffer: args.pointCloud.uniforms.buffer } },
+        { binding: 4, resource: { buffer: args.pointCloud.getExtraPcaBuffer() } },
       ],
     });
     computePass.setBindGroup(1, pcBG);
@@ -389,6 +390,7 @@ export class GaussianPreprocessor implements IPreprocessor {
         { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // sh coeffs
         { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } },           // splat2d output
         { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } },           // uniforms
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } }, // extra PCA
       ],
     });
   }
@@ -404,6 +406,7 @@ export class GaussianPreprocessor implements IPreprocessor {
         { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // keys
         { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // payloads  
         { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // dispatch
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } }, // source indices
       ],
     });
   }

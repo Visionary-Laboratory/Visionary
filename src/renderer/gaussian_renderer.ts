@@ -6,8 +6,11 @@ import { PerspectiveCamera } from '../camera';
 import { GPURSSorter } from '../sort';
 import { PointCloudSortStuff } from '../sort/radix_sort';
 import { BUFFER_CONFIG } from '../point_cloud/layouts';
-import { GaussianPreprocessor, PreprocessArgs } from '../preprocess';
+import { GaussianPreprocessor } from '../preprocess';
 import { gaussianShader } from '../shaders/index';
+import { WeightSimilarityPass } from './weight_similarity_pass';
+import { WeightNumDen2Pass } from './weight_numden2_pass';
+import { WeightRelevancyPass } from './weight_relevancy_pass';
 
 export const DEFAULT_KERNEL_SIZE = 0.3;
 
@@ -42,9 +45,21 @@ export class GaussianRenderer implements IRenderer {
   private globalCapacity = 0; // total allocated splats capacity
   private globalBuffers: {
     splat2D: GPUBuffer;
+    similarity: GPUBuffer;
+    numDen2: GPUBuffer;
     renderBG: GPUBindGroup;
     sortStuff: PointCloudSortStuff;
   } | null = null;
+
+  // Weight map pass (optional)
+  private weightPass: WeightSimilarityPass | null = null;
+  private weightMapEnabled = false;
+  private numDen2Pass: WeightNumDen2Pass | null = null;
+  private weightMapApprox2Enabled = false;
+  private relevancyPass: WeightRelevancyPass | null = null;
+  private weightMapRelevancyEnabled = false;
+  private weightSoftmaxEnabled = false;
+  private weightSoftmaxTemperature = 1.0;
   
   // Legacy constructor support
   constructor(device: GPUDevice, format: GPUTextureFormat, shDeg: number, compressed?: boolean);
@@ -233,6 +248,16 @@ export class GaussianRenderer implements IRenderer {
     if (!this.globalBuffers) return;
     this._dlog('[prepareMulti] using global capacity =', this.globalCapacity);
 
+    if (this.weightMapEnabled) {
+      this.ensureWeightPass();
+    }
+    if (this.weightMapApprox2Enabled) {
+      this.ensureNumDen2Pass();
+    }
+    if (this.weightMapRelevancyEnabled) {
+      this.ensureRelevancyPass();
+    }
+
     // Reset global sorter state
     this.sorter.recordResetIndirectBuffer(this.globalBuffers.sortStuff.sorter_dis, this.globalBuffers.sortStuff.sorter_uni, queue);
 
@@ -277,6 +302,36 @@ export class GaussianRenderer implements IRenderer {
         global: { splat2D: this.globalBuffers.splat2D },
         countBuffer: countBuffer,  // Pass the count buffer if available
       }, encoder);
+
+      if (this.weightMapEnabled && this.weightPass && this.globalBuffers) {
+        const weightBuffer = (pc as any).getWeightBuffer?.() ?? null;
+        this.weightPass.recordComputePass(encoder, {
+          weightsBuffer: weightBuffer,
+          similarityBuffer: this.globalBuffers.similarity,
+          baseOffset: base,
+          numPoints: pc.numPoints,
+        });
+      }
+
+      if (this.weightMapApprox2Enabled && this.numDen2Pass && this.globalBuffers) {
+        const weightBuffer = (pc as any).getWeightBuffer?.() ?? null;
+        this.numDen2Pass.recordComputePass(encoder, {
+          weightsBuffer: weightBuffer,
+          numDen2Buffer: this.globalBuffers.numDen2,
+          baseOffset: base,
+          numPoints: pc.numPoints,
+        });
+      }
+
+      if (this.weightMapRelevancyEnabled && this.relevancyPass && this.globalBuffers) {
+        const weightBuffer = (pc as any).getWeightBuffer?.() ?? null;
+        this.relevancyPass.recordComputePass(encoder, {
+          weightsBuffer: weightBuffer,
+          similarityBuffer: this.globalBuffers.similarity,
+          baseOffset: base,
+          numPoints: pc.numPoints,
+        });
+      }
     }
 
     // One global sort using indirect dispatch produced during preprocess
@@ -299,6 +354,134 @@ export class GaussianRenderer implements IRenderer {
     pass.setBindGroup(1, this.globalBuffers.sortStuff.sorter_render_bg);
     pass.setPipeline(this.useDepth && this.pipelineDepth ? this.pipelineDepth : this.pipeline);
     pass.drawIndirect(this.drawIndirectBuffer, 0);
+  }
+
+  /**
+   * Enable or disable weight similarity map generation.
+   */
+  public setWeightMapEnabled(enabled: boolean): void {
+    this.weightMapEnabled = !!enabled;
+    if (this.weightMapEnabled) {
+      this.ensureWeightPass();
+    }
+  }
+
+  /** Enable or disable pixel-level approx2 (num/den2) weight map generation. */
+  public setWeightMapApprox2Enabled(enabled: boolean): void {
+    this.weightMapApprox2Enabled = !!enabled;
+    if (this.weightMapApprox2Enabled) {
+      this.ensureNumDen2Pass();
+    }
+  }
+
+  /** Enable or disable per-GS neg relevancy generation (writes into similarity buffer). */
+  public setWeightMapRelevancyEnabled(enabled: boolean): void {
+    this.weightMapRelevancyEnabled = !!enabled;
+    if (this.weightMapRelevancyEnabled) {
+      this.ensureRelevancyPass();
+    }
+  }
+
+  /** Control whether per-GS weights are softmaxed in the similarity compute, and softmax temperature. */
+  public setWeightSoftmaxConfig(enabled: boolean, temperature: number = 1.0): void {
+    this.weightSoftmaxEnabled = !!enabled;
+    this.weightSoftmaxTemperature = Number.isFinite(temperature) ? Math.max(1e-6, temperature) : 1.0;
+    this.ensureWeightPass();
+    this.weightPass?.setSoftmaxConfig(this.weightSoftmaxEnabled, this.weightSoftmaxTemperature);
+  }
+
+  /**
+   * Update query weights (length 64).
+   */
+  public setWeightQueryWeights(weights: Float32Array, gram?: Float32Array): void {
+    this.ensureWeightPass();
+    this.weightPass?.setQueryWeights(weights);
+    if (gram) {
+      this.weightPass?.setGramMatrix(gram);
+    }
+  }
+
+  /** Update query weights (length 64) and gram matrix for approx2 (num/den2) path. */
+  public setWeightQueryNumDen2(weights: Float32Array, gram?: Float32Array): void {
+    this.ensureNumDen2Pass();
+    this.numDen2Pass?.setQueryWeights(weights);
+    if (gram) {
+      this.numDen2Pass?.setGramMatrix(gram);
+    }
+  }
+
+  public setWeightRelevancyData(packedQueries: Float32Array, gram?: Float32Array, enabled: boolean = true, tau: number = 10.0, negMask: number = 0xF): void {
+    this.ensureRelevancyPass();
+    if (gram) this.relevancyPass?.setGramMatrix(gram);
+    this.relevancyPass?.setQueriesPacked(packedQueries);
+    this.relevancyPass?.setConfig(enabled, tau, negMask);
+  }
+
+  /**
+   * Record a weight map render pass into an offscreen texture.
+   */
+  public recordWeightMapPass(
+    encoder: GPUCommandEncoder,
+    viewport: [number, number],
+    depthView?: GPUTextureView
+  ): GPUTexture | null {
+    if (!this.weightMapEnabled || !this.weightPass || !this.globalBuffers) return null;
+    this.weightPass.recordRenderPass(encoder, {
+      splat2DBuffer: this.globalBuffers.splat2D,
+      similarityBuffer: this.globalBuffers.similarity,
+      sourceIndicesBuffer: this.globalBuffers.sortStuff.source_indices,
+      sortRenderBindGroup: this.globalBuffers.sortStuff.sorter_render_bg,
+      drawIndirectBuffer: this.drawIndirectBuffer,
+      width: viewport[0],
+      height: viewport[1],
+      depthView,
+      depthFormat: this.depthFormat,
+      useDepth: this.useDepth,
+    });
+    return this.weightPass.getRenderTarget();
+  }
+
+  /** Record pixel-level approx2 num/den2 pass into an offscreen texture. */
+  public recordWeightMapApprox2Pass(
+    encoder: GPUCommandEncoder,
+    viewport: [number, number],
+    depthView?: GPUTextureView
+  ): GPUTexture | null {
+    if (!this.weightMapApprox2Enabled || !this.numDen2Pass || !this.globalBuffers) return null;
+    this.numDen2Pass.recordRenderPass(encoder, {
+      splat2DBuffer: this.globalBuffers.splat2D,
+      numDen2Buffer: this.globalBuffers.numDen2,
+      sourceIndicesBuffer: this.globalBuffers.sortStuff.source_indices,
+      sortRenderBindGroup: this.globalBuffers.sortStuff.sorter_render_bg,
+      drawIndirectBuffer: this.drawIndirectBuffer,
+      width: viewport[0],
+      height: viewport[1],
+      depthView,
+      depthFormat: this.depthFormat,
+      useDepth: this.useDepth,
+    });
+    return this.numDen2Pass.getRenderTarget();
+  }
+
+  public recordWeightMapRelevancyPass(
+    encoder: GPUCommandEncoder,
+    viewport: [number, number],
+    depthView?: GPUTextureView
+  ): GPUTexture | null {
+    if (!this.weightMapRelevancyEnabled || !this.relevancyPass || !this.globalBuffers) return null;
+    this.relevancyPass.recordRenderPass(encoder, {
+      splat2DBuffer: this.globalBuffers.splat2D,
+      similarityBuffer: this.globalBuffers.similarity,
+      sourceIndicesBuffer: this.globalBuffers.sortStuff.source_indices,
+      sortRenderBindGroup: this.globalBuffers.sortStuff.sorter_render_bg,
+      drawIndirectBuffer: this.drawIndirectBuffer,
+      width: viewport[0],
+      height: viewport[1],
+      depthView,
+      depthFormat: this.depthFormat,
+      useDepth: this.useDepth,
+    });
+    return this.relevancyPass.getRenderTarget();
   }
   
   // ========== Private Implementation ==========
@@ -473,7 +656,18 @@ export class GaussianRenderer implements IRenderer {
    */
   private async ensureGlobalCapacity(total: number) {
     const needed = Math.max(1, total);
-    if (this.globalBuffers && needed <= this.globalCapacity) return;
+    if (this.globalBuffers && needed <= this.globalCapacity) {
+      // Hot-reload / migration safety: older globalBuffers might not have the new numDen2 buffer yet.
+      const gbAny = this.globalBuffers as any;
+      if (!gbAny.numDen2) {
+        gbAny.numDen2 = this.device.createBuffer({
+          label: `global/numDen2(cap=${this.globalCapacity})`,
+          size: this.globalCapacity * 8, // vec2<f32> per point
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+      }
+      return;
+    }
     this._dlog('[ensureGlobalCapacity] grow needed. needed=', needed, 'oldCap=', this.globalCapacity);
 
     // Grow with 1.25x factor to reduce realloc frequency
@@ -482,6 +676,8 @@ export class GaussianRenderer implements IRenderer {
     // Release old resources if any
     if (this.globalBuffers) {
       try { this.globalBuffers.splat2D.destroy(); } catch {}
+      try { (this.globalBuffers as any).similarity?.destroy?.(); } catch {}
+      try { (this.globalBuffers as any).numDen2?.destroy?.(); } catch {}
       // sortStuff buffers are owned by sorter; they will be GC'd when unused
       this.globalBuffers = null;
     }
@@ -498,6 +694,18 @@ export class GaussianRenderer implements IRenderer {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
+    const similarity = this.device.createBuffer({
+      label: `global/similarity(cap=${newCapacity})`,
+      size: newCapacity * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+
+    const numDen2 = this.device.createBuffer({
+      label: `global/numDen2(cap=${newCapacity})`,
+      size: newCapacity * 8, // vec2<f32> per point
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+
     // Create render bind group compatible with PointCloud.renderBindGroupLayout
     const rbl = PointCloud.renderBindGroupLayout(this.device);
     const renderBG = this.device.createBindGroup({
@@ -506,9 +714,32 @@ export class GaussianRenderer implements IRenderer {
       entries: [ { binding: 2, resource: { buffer: splat2D } } ],
     });
 
-    this.globalBuffers = { splat2D, renderBG, sortStuff };
+    this.globalBuffers = { splat2D, similarity, numDen2, renderBG, sortStuff };
     this.globalCapacity = newCapacity;
     this._dlog('[ensureGlobalCapacity] new capacity =', this.globalCapacity);
+  }
+
+  private ensureWeightPass(): void {
+    if (!this.weightPass) {
+      this.weightPass = new WeightSimilarityPass(this.device, this.format);
+      this.weightPass.initialize();
+    }
+    // Keep compute shader params in sync
+    this.weightPass.setSoftmaxConfig(this.weightSoftmaxEnabled, this.weightSoftmaxTemperature);
+  }
+
+  private ensureNumDen2Pass(): void {
+    if (!this.numDen2Pass) {
+      this.numDen2Pass = new WeightNumDen2Pass(this.device, 'rgba16float');
+      this.numDen2Pass.initialize();
+    }
+  }
+
+  private ensureRelevancyPass(): void {
+    if (!this.relevancyPass) {
+      this.relevancyPass = new WeightRelevancyPass(this.device, this.format);
+      this.relevancyPass.initialize();
+    }
   }
 
   /**

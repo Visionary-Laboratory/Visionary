@@ -28,6 +28,9 @@ export function getBindGroupLayout(device: GPUDevice): GPUBindGroupLayout {
       // 3: uniforms
       { binding: 3, visibility: GPUShaderStage.COMPUTE,
         buffer: { type: "uniform" } },
+      // 4: optional extra PCA buffer
+      { binding: 4, visibility: GPUShaderStage.COMPUTE,
+        buffer: { type: "read-only-storage" } },
     ],
   });
 

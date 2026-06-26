@@ -7,10 +7,21 @@ import { GenericGaussianPointCloudTS } from "../utils";
 import { SplatBuffer } from "./splat_buffer";
 import { getBindGroupLayout, getRenderBindGroupLayout, BUFFER_CONFIG } from "./layouts";
 
+function toArrayBuffer(view: ArrayBufferView): ArrayBuffer {
+  // WebGPU types can be strict about accepting only ArrayBuffer-backed views.
+  // Copy to a fresh ArrayBuffer to avoid SharedArrayBuffer-related type mismatches.
+  const out = new ArrayBuffer(view.byteLength);
+  new Uint8Array(out).set(new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
+  return out;
+}
+
 export class PointCloud {
   private splat2DBuffer: GPUBuffer;            // storage for projected splats / sort keys
   protected gaussianBufferGPU: GPUBuffer;        // 3DGS attributes
   protected shBufferGPU: GPUBuffer;              // SH coefficients
+  protected extraPcaBufferGPU: GPUBuffer;        // optional extra per-point attributes (vec4<f32>)
+  protected weightBufferGPU: GPUBuffer | null = null; // optional per-point 64D weights
+  protected weightChannels: number = 64;
 
   private _bindGroup: GPUBindGroup;            // general compute/prepare BG (if used)
   private _renderBindGroup: GPUBindGroup;      // render pass BG (textures/samplers + storage)
@@ -105,6 +116,26 @@ export class PointCloud {
       device.queue.writeBuffer(this.shBufferGPU, 0, pc.shCoefsBuffer());
     }
 
+    // Optional extra PCA RGB buffer (vec4<f32> per point); allocate dummy zeros if missing
+    const extraPcaBytes = Math.max(1, this.numPoints) * 16;
+    let extraPcaCPU: ArrayBuffer | null = null;
+    try {
+      if (typeof (pc as any).extraPcaBuffer === 'function') {
+        const buf = (pc as any).extraPcaBuffer() as ArrayBuffer;
+        if (buf && buf.byteLength >= extraPcaBytes) extraPcaCPU = buf;
+      }
+    } catch {}
+    this.extraPcaBufferGPU = device.createBuffer({
+      label: "extra_pca/storage",
+      size: extraPcaBytes,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    if (extraPcaCPU) {
+      device.queue.writeBuffer(this.extraPcaBufferGPU, 0, extraPcaCPU);
+    } else {
+      device.queue.writeBuffer(this.extraPcaBufferGPU, 0, new Uint8Array(extraPcaBytes));
+    }
+
     // 2D splat buffer (projected attributes + sort keys). Size depends on pipeline; allocate numPoints * stride.
     this.splat2DBuffer = device.createBuffer({
       label: "splat2d/storage",
@@ -167,6 +198,7 @@ export class PointCloud {
         { binding: 1, resource: { buffer: this.shBufferGPU } },
         { binding: 2, resource: { buffer: this.splat2DBuffer } },
         { binding: 3, resource: { buffer: this.uniforms.buffer } },
+        { binding: 4, resource: { buffer: this.extraPcaBufferGPU } },
       ],
     });
 
@@ -201,9 +233,38 @@ export class PointCloud {
         { binding: 1, resource: { buffer: this.shBufferGPU } },
         { binding: 2, resource: { buffer: this.splat2DBuffer } },
         { binding: 3, resource: { buffer: this.uniforms.buffer } },
+        { binding: 4, resource: { buffer: this.extraPcaBufferGPU } },
       ],
     });
   }
+
+  /** Expose extra PCA buffer for preprocess binding (read-only storage) */
+  getExtraPcaBuffer(): GPUBuffer { return this.extraPcaBufferGPU; }
+
+  /**
+   * Attach per-point weight buffer (64 channels by default).
+   */
+  setWeightBufferGPU(buffer: GPUBuffer, channels: number = 64): void {
+    this.weightBufferGPU = buffer;
+    this.weightChannels = channels;
+  }
+
+  /**
+   * Create and upload per-point weight buffer from CPU data.
+   */
+  setWeightBufferFromArray(device: GPUDevice, weights: Float32Array, channels: number = 64): void {
+    this.weightChannels = channels;
+    this.weightBufferGPU = device.createBuffer({
+      label: "weights/storage",
+      size: weights.byteLength,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(this.weightBufferGPU, 0, toArrayBuffer(weights));
+  }
+
+  hasWeightBuffer(): boolean { return !!this.weightBufferGPU; }
+  getWeightBuffer(): GPUBuffer | null { return this.weightBufferGPU; }
+  getWeightChannels(): number { return this.weightChannels; }
 
   /**
    * Get SplatBuffer interface for this point cloud
@@ -378,10 +439,10 @@ export class PointCloud {
 
   /**
    * 设置渲染模式
-   * @param mode - 渲染模式 (0=颜色, 1=法线, 2=深度)
+   * @param mode - 渲染模式 (0=颜色, 1=法线, 2=深度, 3=PCA)
    */
   public setRenderMode(mode: number): void {
-    this._rendermode = Math.max(0, Math.min(2, mode));
+    this._rendermode = Math.max(0, Math.min(3, mode));
     console.log(`[PointCloud] Render mode set to: ${this._rendermode}`);
   }
   

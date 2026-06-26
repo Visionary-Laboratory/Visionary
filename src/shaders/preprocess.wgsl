@@ -80,6 +80,9 @@ struct SortInfos {
     odd_pass: u32,
 }
 
+@group(2) @binding(4)
+var<storage, read_write> sort_source_indices : array<u32>;
+
 struct RenderSettings {
     clipping_box_min: vec4<f32>,
     clipping_box_max: vec4<f32>,
@@ -108,6 +111,9 @@ var<storage, read> color_buffer : array<u32>; // Uint32Array backing
 @group(1) @binding(2) 
 var<storage,read_write> points_2d : array<Splat>;
 
+@group(1) @binding(4)
+var<storage, read> extra_pca : array<vec4<f32>>;
+
 
 
 @group(2) @binding(0)
@@ -132,7 +138,7 @@ struct ModelParams {
     kernelSize: f32,      // 二维核大小
     opacityScale: f32,    // 透明度倍数
     cutoffScale: f32,     // 最大像素比例倍数
-    rendermode: u32,      // 渲染模式: 0=颜色, 1=法线, 2=深度
+    rendermode: u32,      // 渲染模式: 0=颜色, 1=法线, 2=深度, 3=PCA
     // 多精度支持
     gaussDataType: u32,   // 0=f32, 1=f16, 2=i8, 3=u8
     colorDataType: u32,
@@ -594,6 +600,10 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
         // 模式2: 深度可视化（使用透视除法后的 NDC 深度，0..1）
         let depth_ndc = 1.0 - clamp(pos2d.z / pos2d.w, 0.0, 1.0);
         color = vec4<f32>(depth_ndc, depth_ndc, depth_ndc, opacity);
+    } else if (uModel.rendermode == 3u) {
+        // 模式3: PCA可视化（extra_pca_r/g/b）
+        let p = extra_pca[idx].xyz;
+        color = vec4<f32>(clamp(p, vec3<f32>(0.0), vec3<f32>(1.0)), opacity);
     } else {
         // 默认: 正常颜色
         color = vec4<f32>(
@@ -615,6 +625,7 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     // filling the sorting buffers and the indirect sort dispatch buffer
     sort_depths[store_idx] = bitcast<u32>(zfar - pos2d.z) ;//u32(f32(0xffffffu) - pos2d.z / zfar * f32(0xffffffu));
     sort_indices[store_idx] = store_idx;
+    sort_source_indices[store_idx] = uModel.baseOffset + idx;
 
     let keys_per_wg = 256u * 15u;         // Caution: if workgroup size (256) or keys per thread (15) changes the dispatch is wrong!!
     if (global_index % keys_per_wg) == 0u {

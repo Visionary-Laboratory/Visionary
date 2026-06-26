@@ -1,7 +1,10 @@
 import * as ort from 'onnxruntime-web/webgpu';
 
 // 默认 dummy 模型的 URL（打包时随包发布）
+// 注意：visionary 开源版无 public/ 目录，根路径 '/models/...' 在生产构建中无法解析，
+// 故使用 bundler 友好的 import.meta.url 形式（vite 会哈希并打包该资源）。
 export const DEFAULT_DUMMY_MODEL_URL = new URL('../../models/onnx_dummy.onnx', import.meta.url).toString();
+// export const DEFAULT_DUMMY_MODEL_URL = '/models/onnx_dummy.onnx';
 
 export async function initWebGPU(canvas: HTMLCanvasElement) {
   if (!navigator.gpu) throw new Error('WebGPU not supported');
@@ -22,6 +25,14 @@ export async function initWebGPU(canvas: HTMLCanvasElement) {
 
 
   const L = adapter.limits;
+  const maxStorageBuffers = (L as any).maxStorageBuffersPerShaderStage ?? 8;
+  const requestedStorageBuffers = Math.min(10, maxStorageBuffers);
+  if (requestedStorageBuffers < 9) {
+    console.warn(
+      `[WebGPU] maxStorageBuffersPerShaderStage=${requestedStorageBuffers} < 9; preprocess pipeline may fail on this adapter.`
+    );
+  }
+
   const requiredLimits: GPUDeviceDescriptor["requiredLimits"] = {
     maxStorageBufferBindingSize: L.maxStorageBufferBindingSize,
     maxBufferSize: (L as any).maxBufferSize ?? L.maxStorageBufferBindingSize,
@@ -30,6 +41,7 @@ export async function initWebGPU(canvas: HTMLCanvasElement) {
     maxComputeWorkgroupSizeX: L.maxComputeWorkgroupSizeX,
     maxComputeWorkgroupSizeY: L.maxComputeWorkgroupSizeY,
     maxComputeWorkgroupSizeZ: L.maxComputeWorkgroupSizeZ,
+    maxStorageBuffersPerShaderStage: requestedStorageBuffers,
   } as any;
 
   const device = await adapter.requestDevice({
@@ -209,7 +221,48 @@ async function obtainOrtDevice(opts: { adapter?: GPUAdapter | null; dummyModelUr
     }
   }
 
-  // First attempt: ask ORT for its device (getter returns a Promise in recent versions)
+  // Prefer creating our own device with requiredLimits (e.g. maxStorageBuffersPerShaderStage >= 9)
+  // and injecting into ORT. The patched onnxruntime-web backend will use env.webgpu.device when set,
+  // so it will not call adapter.requestDevice() again (avoids "adapter is consumed").
+  if (opts.adapter) {
+    try {
+      const webgpuEnv = (ort.env as any).webgpu || {};
+      (ort.env as any).webgpu = webgpuEnv;
+
+      if (!webgpuEnv.device) {
+        const device = await createOwnDevice(opts.adapter);
+        webgpuEnv.device = device;
+        if (!webgpuEnv.adapter) webgpuEnv.adapter = opts.adapter;
+        console.log('[WebGPU] Created app-owned device with requiredLimits; ORT backend will use it from env.webgpu.device.');
+        return device;
+      }
+    } catch (e) {
+      console.warn('[WebGPU] Failed to create shared device for ORT:', e);
+    }
+  }
+
+  // helen add 0206
+  // Fallback: let ORT create the device via dummy session (requires dummyModelUrl).
+  if (opts.adapter && opts.dummyModelUrl) {
+    try {
+      const webgpuEnv = (ort.env as any).webgpu || {};
+      (ort.env as any).webgpu = webgpuEnv;
+      if (!webgpuEnv.adapter) webgpuEnv.adapter = opts.adapter;
+      await createOrtDummySession(opts.dummyModelUrl);
+      const dev = (ort.env as any).webgpu?.device;
+      if (dev) {
+        const finalDev = dev instanceof Promise ? await dev : dev;
+        if (finalDev) {
+          console.log('[WebGPU] ORT created device via dummy session.');
+          return finalDev;
+        }
+      }
+    } catch (e) {
+      console.warn('[WebGPU] Failed to obtain device via ORT dummy session:', e);
+    }
+  }
+
+  // Reuse existing ORT device if set (e.g. by a previous init).
   try {
     const webgpuEnv = (ort.env as any).webgpu;
     if (webgpuEnv) {
@@ -224,25 +277,26 @@ async function obtainOrtDevice(opts: { adapter?: GPUAdapter | null; dummyModelUr
     console.warn('[WebGPU] Could not get device from ORT env:', e);
   }
 
+  // ********************helen add 0206******************************************** */
   // Strict fallback: force-init via dummy session if URL provided
-  if (opts.dummyModelUrl) {
-    try {
-      await createOrtDummySession(opts.dummyModelUrl);
-      const ort2 = await getOrtModule();
-      if (ort2) {
-        try {
-          const dev = (ort2.env as any).webgpu?.device;
-          if (dev) {
-            const finalDev = dev instanceof Promise ? await dev : dev;
-            if (finalDev) return finalDev;
-          }
-        } catch {/* ignore */}
-      }
-    } catch (e) {
-      console.warn('[WebGPU] Failed to create dummy session:', e);
-    }
-  }
-
+  // if (opts.dummyModelUrl) {
+  //   try {
+  //     await createOrtDummySession(opts.dummyModelUrl);
+  //     const ort2 = await getOrtModule();
+  //     if (ort2) {
+  //       try {
+  //         const dev = (ort2.env as any).webgpu?.device;
+  //         if (dev) {
+  //           const finalDev = dev instanceof Promise ? await dev : dev;
+  //           if (finalDev) return finalDev;
+  //         }
+  //       } catch {/* ignore */}
+  //     }
+  //   } catch (e) {
+  //     console.warn('[WebGPU] Failed to create dummy session:', e);
+  //   }
+  // }
+//****************************************************************************************** */
   return null;
 }
 
@@ -256,6 +310,14 @@ async function createOwnDevice(adapter: GPUAdapter): Promise<GPUDevice> {
   }
 
   const L = adapter.limits;
+  const maxStorageBuffers = (L as any).maxStorageBuffersPerShaderStage ?? 8;
+  const requestedStorageBuffers = Math.min(10, maxStorageBuffers);
+  if (requestedStorageBuffers < 9) {
+    console.warn(
+      `[WebGPU] maxStorageBuffersPerShaderStage=${requestedStorageBuffers} < 9; preprocess pipeline may fail on this adapter.`
+    );
+  }
+
   const requiredLimits: GPUDeviceDescriptor["requiredLimits"] = {
     maxStorageBufferBindingSize: L.maxStorageBufferBindingSize,
     maxBufferSize: (L as any).maxBufferSize ?? L.maxStorageBufferBindingSize,
@@ -264,6 +326,7 @@ async function createOwnDevice(adapter: GPUAdapter): Promise<GPUDevice> {
     maxComputeWorkgroupSizeX: L.maxComputeWorkgroupSizeX,
     maxComputeWorkgroupSizeY: L.maxComputeWorkgroupSizeY,
     maxComputeWorkgroupSizeZ: L.maxComputeWorkgroupSizeZ,
+    maxStorageBuffersPerShaderStage: requestedStorageBuffers,
   } as any;
 
   const device = await adapter.requestDevice({
@@ -298,13 +361,14 @@ export async function assertSharedWithOrt(appDevice: GPUDevice): Promise<void> {
 }
 
 /**
- * Initialize WebGPU canvas + device, strictly preferring a shared device with ORT when available.
+ * Initialize WebGPU canvas + device, sharing one device with ORT and Three.js.
  *
  * Strategy:
  * 1) Get adapter
- * 2) If preferShareWithOrt && ORT is available: obtain ORT's device (or force-init via dummy)
- * 3) If ORT absent: create our own device
- * 4) Configure canvas and return context
+ * 2) If preferShareWithOrt && ORT is available: create our own device with requiredLimits
+ *    (e.g. maxStorageBuffersPerShaderStage >= 9 for Gaussian preprocess), inject into ort.env.webgpu
+ * 3) If ORT absent: create our own device the same way
+ * 4) Configure canvas and return context. ONNX session creation must pass this device in EP options.
  */
 export async function initWebGPU_onnx(
   canvas: HTMLCanvasElement,
@@ -330,9 +394,15 @@ export async function initWebGPU_onnx(
           // If it's a Promise, await it
           device = existingDevice instanceof Promise ? await existingDevice : existingDevice;
           if (device) {
-            console.log('[WebGPU] Reusing existing ORT device for new canvas');
-            // Try to get the adapter from ORT env (if available)
-            adapter = webgpuEnv.adapter;
+            const maxSB = (device.limits as any).maxStorageBuffersPerShaderStage ?? 8;
+            if (maxSB < 9) {
+              console.warn(`[WebGPU] Existing ORT device maxStorageBuffersPerShaderStage=${maxSB} < 9; ignore and re-create.`);
+              device = null;
+            } else {
+              console.log('[WebGPU] Reusing existing ORT device for new canvas');
+              // Try to get the adapter from ORT env (if available)
+              adapter = webgpuEnv.adapter;
+            }
           }
         }
       }

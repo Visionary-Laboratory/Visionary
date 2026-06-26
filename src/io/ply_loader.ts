@@ -90,6 +90,18 @@ export class PLYLoader implements ILoader<PLYGaussianData> {
 
     const SH_FIXED_STRIDE_U32 = 24; 
     const shPacked = new Uint32Array(N * SH_FIXED_STRIDE_U32);
+
+    // Optional extra PCA color (0..1) as vec4<f32> aligned buffer (r,g,b,0)
+    const hasExtraPca = fieldIndices.iExtraPcaR >= 0 && fieldIndices.iExtraPcaG >= 0 && fieldIndices.iExtraPcaB >= 0;
+    const extraPca = hasExtraPca ? new Float32Array(N * 4) : null;
+
+    const weightIndices = fieldIndices.weightIndices;
+    const hasAnyWeight = weightIndices.some((idx) => idx >= 0);
+    const hasWeights = weightIndices.every((idx) => idx >= 0);
+    if (hasAnyWeight && !hasWeights) {
+      throw new Error("PLY has partial weight properties (expected weight_0..weight_63)");
+    }
+    const weights = hasWeights ? new Float32Array(N * 64) : null;
     
     const gaussFloat: [number, number, number][] = [];
     
@@ -116,6 +128,21 @@ export class PLYLoader implements ILoader<PLYGaussianData> {
       
       gaussFloat.push([gaussian.x, gaussian.y, gaussian.z]);
       copySH(i * wordsPerPoint, row, false);
+
+      if (extraPca) {
+        const base4 = i * 4;
+        extraPca[base4 + 0] = row[fieldIndices.iExtraPcaR];
+        extraPca[base4 + 1] = row[fieldIndices.iExtraPcaG];
+        extraPca[base4 + 2] = row[fieldIndices.iExtraPcaB];
+        extraPca[base4 + 3] = 0.0;
+      }
+
+      if (weights) {
+        const base64 = i * 64;
+        for (let w = 0; w < 64; w++) {
+          weights[base64 + w] = row[weightIndices[w]];
+        }
+      }
       
       if (gaussian.x < min[0]) min[0] = gaussian.x;
       if (gaussian.y < min[1]) min[1] = gaussian.y;
@@ -134,6 +161,8 @@ export class PLYLoader implements ILoader<PLYGaussianData> {
     return new PLYGaussianData({
       gaussianBuffer: gaussHalf.buffer,
       shCoefsBuffer: shPacked.buffer,
+      extraPcaBuffer: extraPca ? extraPca.buffer : undefined,
+      weightBuffer: weights ? weights.buffer : undefined,
       numPoints: N,
       shDegree: L,
       bbox: { min, max },
@@ -146,6 +175,10 @@ export class PLYLoader implements ILoader<PLYGaussianData> {
   }
   
   private getFieldIndices(props: string[]) {
+    const weightIndices = new Array(64).fill(-1);
+    for (let i = 0; i < 64; i++) {
+      weightIndices[i] = props.indexOf(`weight_${i}`);
+    }
     return {
       ix: props.indexOf("x"),
       iy: props.indexOf("y"),
@@ -161,6 +194,10 @@ export class PLYLoader implements ILoader<PLYGaussianData> {
       iDC0: props.indexOf("f_dc_0"),
       iDC1: props.indexOf("f_dc_1"),
       iDC2: props.indexOf("f_dc_2"),
+      iExtraPcaR: props.indexOf("extra_pca_r"),
+      iExtraPcaG: props.indexOf("extra_pca_g"),
+      iExtraPcaB: props.indexOf("extra_pca_b"),
+      weightIndices,
     };
   }
   

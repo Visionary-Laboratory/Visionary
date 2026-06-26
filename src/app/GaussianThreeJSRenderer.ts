@@ -33,6 +33,36 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
     private overlayPipeline: GPURenderPipeline | null = null;
     private overlayRenderedThisFrame = false;
 
+    // Post-process pass support
+    private postProcessEnabled = false;
+    private postProcessTarget: GPUTexture | null = null;
+    private postProcessTargetView: GPUTextureView | null = null;
+    private postProcessTargetWidth = 0;
+    private postProcessTargetHeight = 0;
+    private postProcessTargetWrittenThisFrame = false;
+    private postProcessSampler: GPUSampler | null = null;
+    private postProcessBindGroupLayout: GPUBindGroupLayout | null = null;
+    private postProcessPipeline: GPURenderPipeline | null = null;
+    private postProcessFragmentWGSL: string | null = null;
+    private postProcessUsesDepth = false;
+    private postProcessUsesExtraTexture = false;
+    private postProcessUsesUniform = false;
+    private postProcessExtraTexture: GPUTexture | null = null;
+    private postProcessExtraSampler: GPUSampler | null = null;
+    private postProcessUniformBuffer: GPUBuffer | null = null;
+    private dummyPostProcessExtraTexture: GPUTexture | null = null;
+
+    // Weight overlay support
+    private weightOverlayEnabled = false;
+    private weightOverlayApprox2Enabled = false;
+    private weightOverlayUseRelevancy = false;
+    private weightOverlayRelevancyTau = 10.0;
+    private weightOverlayThreshold = 0.25;
+    private weightOverlayOpacity = 0.6;
+    private weightOverlayBlendWithBase = true;
+    private weightOverlayGain = 1.5;
+    private weightOverlayColormap: number = 0; // 0:Turbo,1:Viridis,2:Inferno,3:Magma,4:Plasma,5:Jet
+
     public constructor(renderer: THREE.WebGPURenderer, scene: THREE.Scene, gaussianModels: GaussianModel[]) {
         super();
 
@@ -44,6 +74,13 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
         this.threeRenderer = renderer;
         this.threeScene = scene;
         this.device = (renderer.backend as any).device as GPUDevice;
+        // Surface WebGPU validation errors (otherwise failures can look like "frozen" frames).
+        try {
+            this.device.onuncapturederror = (ev: GPUUncapturedErrorEvent) => {
+                const msg = (ev.error as any)?.message;
+                console.error('[WebGPU] uncaptured error:', msg ?? ev.error, ev.error);
+            };
+        } catch {}
         const format = navigator.gpu.getPreferredCanvasFormat();
         this.renderer = new GaussianRenderer(this.device, format, 3);
         this.gaussianModels = gaussianModels;
@@ -59,6 +96,8 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
      * This replaces the manual renderer.render(scene, camera) in demo
      */
     public renderThreeScene(camera: THREE.Camera): void {
+        // Tracks whether we refreshed postProcessTarget this frame (important to avoid "frozen" stale contents).
+        this.postProcessTargetWrittenThisFrame = false;
         if (!this.autoDepthMode) return;
         
         // Get actual drawing buffer size (matches GPU context)
@@ -107,14 +146,16 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
         }
         
         // Blit RT color to canvas (no need to re-render scene)
-        this.blitRenderTargetToCanvas(camera);
+        const postProcessView = this.ensurePostProcessTarget(width, height);
+        this.blitRenderTargetToTarget(camera, postProcessView ?? undefined);
+        this.postProcessTargetWrittenThisFrame = !!postProcessView;
     }
 
     /**
      * Blit RenderTarget color buffer to canvas using render pass
      * Uses a fullscreen quad shader to handle format conversion
      */
-    private blitRenderTargetToCanvas(camera: THREE.Camera): void {
+    private blitRenderTargetToTarget(camera: THREE.Camera, targetView?: GPUTextureView): void {
         if (!this.sceneDepthRT) return;
 
         try {
@@ -126,18 +167,21 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
                 return;
             }
 
-            // Get canvas context
-            const canvas = this.threeRenderer.domElement;
-            const context = canvas.getContext('webgpu');
-            if (!context) {
-                console.warn('[Depth] No WebGPU context available for blit');
-                this.threeRenderer.render(this.threeScene, camera);
-                return;
-            }
+            let outputView = targetView;
+            if (!outputView) {
+                // Get canvas context
+                const canvas = this.threeRenderer.domElement;
+                const context = canvas.getContext('webgpu');
+                if (!context) {
+                    console.warn('[Depth] No WebGPU context available for blit');
+                    this.threeRenderer.render(this.threeScene, camera);
+                    return;
+                }
 
-            // Get current texture view (canvas)
-            const currentTexture = context.getCurrentTexture();
-            const canvasView = currentTexture.createView();
+                // Get current texture view (canvas)
+                const currentTexture = context.getCurrentTexture();
+                outputView = currentTexture.createView();
+            }
 
             // Get RT color texture
             const backend = (this.threeRenderer as any).backend;
@@ -152,14 +196,14 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
 
             // Check format compatibility
             const rtFormat = rtColorInfo?.format;
-            const canvasFormat = currentTexture.format;
-            
+            const targetFormat = this.canvasFormat;
+
             if ((globalThis as any).GS_DEPTH_DEBUG) {
-                //console.log('[Depth] RT format:', rtFormat, 'Canvas format:', canvasFormat);
+                //console.log('[Depth] RT format:', rtFormat, 'Target format:', targetFormat);
             }
 
             // Use render pass for format conversion (more reliable than copy)
-            this.blitWithRenderPass(device, rtColorTexture, canvasView, this.sceneDepthRT.width, this.sceneDepthRT.height);
+            this.blitWithRenderPass(device, rtColorTexture, outputView, this.sceneDepthRT.width, this.sceneDepthRT.height);
 
             if ((globalThis as any).GS_DEPTH_DEBUG) {
                 //console.log('[Depth] ✅ Blitted RT to canvas via render pass (format conversion)');
@@ -264,7 +308,7 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
                 }),
                 entryPoint: 'fs_main',
                 targets: [{
-                    format: 'bgra8unorm' // Canvas format (sRGB显示)
+                    format: this.canvasFormat // Canvas format (sRGB显示)
                 }]
             },
             primitive: {
@@ -368,6 +412,9 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
           
             return false;
         }
+
+        // NOTE: We intentionally do not force-call onBeforeRender() here.
+        // The correct per-frame prepare is driven by the normal render flow; forcing it can hide real bugs.
         
         // 确保相机是PerspectiveCamera类型
         if (!(camera instanceof THREE.PerspectiveCamera) && camera.type !== 'PerspectiveCamera') {
@@ -377,7 +424,15 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
 
         const device = (renderer.backend as any).device as GPUDevice;
         const context = (renderer.backend as any).context as GPUCanvasContext;
-        const colorView = context.getCurrentTexture().createView();
+        const canvasView = context.getCurrentTexture().createView();
+        let colorView = canvasView;
+        if (this.postProcessEnabled) {
+            const [vw, vh] = this.getViewport();
+            const postProcessView = this.ensurePostProcessTarget(vw, vh);
+            if (postProcessView) {
+                colorView = postProcessView;
+            }
+        }
         const encoder = device.createCommandEncoder({label: "GS-render"});
         
         // Pass B: Try to get depth view from Three.js RenderTarget
@@ -455,7 +510,8 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
             colorAttachments: [{
                 view: colorView,
                 clearValue: { r: 0, g: 0, b: 0, a: 1 },
-                loadOp: "load",
+                // If postprocess is enabled but the target wasn't refreshed this frame, don't "load" stale pixels.
+                loadOp: (this.postProcessEnabled && colorView !== canvasView && !this.postProcessTargetWrittenThisFrame) ? 'clear' : 'load',
                 storeOp: "store",
             }]
         };
@@ -484,6 +540,27 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
         this.renderer.renderMulti(pass, this.pcs);
         pass.end();
         this.compositeOverlayToCanvas(device, encoder, colorView);
+
+        if (this.weightOverlayEnabled) {
+            const [vw, vh] = this.getViewport();
+            const weightTexture = this.weightOverlayUseRelevancy
+                ? ((this.renderer as any).recordWeightMapRelevancyPass?.(encoder, [vw, vh], depthView) as GPUTexture | null)
+                : this.renderer.recordWeightMapPass(encoder, [vw, vh], depthView);
+            if (weightTexture) {
+                this.setPostProcessExtraTexture(weightTexture);
+            }
+        }
+        if (this.weightOverlayApprox2Enabled) {
+            const [vw, vh] = this.getViewport();
+            const tex = (this.renderer as any).recordWeightMapApprox2Pass?.(encoder, [vw, vh], depthView) as GPUTexture | null;
+            if (tex) {
+                this.setPostProcessExtraTexture(tex);
+            }
+        }
+
+        if (this.postProcessEnabled && this.postProcessTarget && colorView !== canvasView) {
+            this.runPostProcessPass(device, encoder, this.postProcessTarget, canvasView, depthView);
+        }
         device.queue.submit([encoder.finish()]);
 
         return true;
@@ -698,6 +775,312 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
     }
 
     /**
+     * Enable or disable the post-process pass.
+     * When enabled, scene color + GS are rendered to an offscreen target,
+     * then post-processed into the canvas.
+     */
+    public setPostProcessEnabled(enabled: boolean): void {
+        this.postProcessEnabled = enabled;
+    }
+
+    /**
+     * Set custom post-process fragment WGSL.
+     * The fragment should define:
+     *   @fragment fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f
+     * Bindings:
+     *   @group(0) @binding(0) var sourceTexture: texture_2d<f32>;
+     *   @group(0) @binding(1) var sourceSampler: sampler;
+     * Optional (when usesDepth=true):
+     *   @group(0) @binding(2) var sourceDepth: texture_depth_2d;
+     */
+    public setPostProcessShader(fragmentWGSL: string | null, usesDepth: boolean = false): void {
+        this.setPostProcessShaderEx(fragmentWGSL, { usesDepth });
+    }
+
+    public setPostProcessShaderEx(
+        fragmentWGSL: string | null,
+        options?: { usesDepth?: boolean; usesExtraTexture?: boolean; usesUniform?: boolean }
+    ): void {
+        this.postProcessFragmentWGSL = fragmentWGSL;
+        this.postProcessUsesDepth = !!options?.usesDepth;
+        this.postProcessUsesExtraTexture = !!options?.usesExtraTexture;
+        this.postProcessUsesUniform = !!options?.usesUniform;
+        this.postProcessPipeline = null;
+        this.postProcessBindGroupLayout = null;
+    }
+
+    public setPostProcessExtraTexture(texture: GPUTexture | null): void {
+        this.postProcessExtraTexture = texture;
+    }
+
+    public setPostProcessUniformData(data: Float32Array): void {
+        this.ensurePostProcessUniformBuffer();
+        if (!this.postProcessUniformBuffer) return;
+        this.device.queue.writeBuffer(
+            this.postProcessUniformBuffer,
+            0,
+            data.buffer,
+            data.byteOffset,
+            data.byteLength
+        );
+    }
+
+    public setWeightQueryWeights(weights: Float32Array): void {
+        this.renderer.setWeightQueryWeights(weights);
+    }
+
+    public setWeightQueryCosineData(query64: Float32Array, gram64x64: Float32Array): void {
+        // Keep both heatmap algorithms fed with the latest query data.
+        this.renderer.setWeightQueryWeights(query64, gram64x64);
+        try { (this.renderer as any).setWeightQueryNumDen2?.(query64, gram64x64); } catch {}
+    }
+
+    public setLanguageWeightsSoftmax(enabled: boolean, temperature: number = 1.0): void {
+        (this.renderer as any).setWeightSoftmaxConfig?.(enabled, temperature);
+    }
+
+    public async loadWeightQueryFromUrls(
+        codebookUrl: string,
+        queryListUrl: string,
+        queryName?: string
+    ): Promise<void> {
+        const [codebookBuffer, queryJson] = await Promise.all([
+            fetch(codebookUrl).then(async (res) => {
+                if (!res.ok) {
+                    throw new Error(`Failed to fetch codebook: ${res.status} ${res.statusText}`);
+                }
+                return res.arrayBuffer();
+            }),
+            fetch(queryListUrl).then(async (res) => {
+                if (!res.ok) {
+                    throw new Error(`Failed to fetch query list: ${res.status} ${res.statusText}`);
+                }
+                return res.json();
+            }),
+        ]);
+
+        const languageCodebook = new Float32Array(codebookBuffer);
+        const languageQuery512 = this.extractQueryVector(queryJson, queryName);
+        const languageQuery64 = this.computeQueryWeights(languageCodebook, languageQuery512);
+        const gram = this.computeGramMatrix(languageCodebook);
+        this.setWeightQueryCosineData(languageQuery64, gram);
+    }
+
+    public setWeightQueryFromData(codebook: Float32Array, queryVector: Float32Array): void {
+        const languageCodebook = codebook;
+        const languageQuery512 = queryVector;
+        const languageQuery64 = this.computeQueryWeights(languageCodebook, languageQuery512);
+        const gram = this.computeGramMatrix(languageCodebook);
+        this.setWeightQueryCosineData(languageQuery64, gram);
+    }
+
+    public setWeightOverlayEnabled(enabled: boolean, options?: { threshold?: number; opacity?: number }): void {
+        this.weightOverlayEnabled = !!enabled;
+        if (this.weightOverlayEnabled) this.weightOverlayApprox2Enabled = false;
+        if (options?.threshold !== undefined) this.weightOverlayThreshold = options.threshold;
+        if (options?.opacity !== undefined) this.weightOverlayOpacity = options.opacity;
+
+        if (this.weightOverlayEnabled) {
+            // Enable the correct per-GS generator (plain similarity vs neg relevancy).
+            if (this.weightOverlayUseRelevancy) {
+                try { (this.renderer as any).setWeightMapRelevancyEnabled?.(true); } catch {}
+                try { (this.renderer as any).setWeightMapEnabled?.(false); } catch {}
+            } else {
+                this.renderer.setWeightMapEnabled(true);
+                try { (this.renderer as any).setWeightMapRelevancyEnabled?.(false); } catch {}
+            }
+            this.setPostProcessEnabled(true);
+            this.setPostProcessShaderEx(this.getWeightOverlayShader(), {
+                usesExtraTexture: true,
+                usesUniform: true,
+            });
+            this.ensureDummyPostProcessExtraTexture();
+            // Fallback to dummy until the weight map RT is produced this frame.
+            if (!this.postProcessExtraTexture) this.setPostProcessExtraTexture(this.dummyPostProcessExtraTexture);
+            this.updateWeightOverlayUniform();
+        } else {
+            // Hard-disable the entire heatmap pipeline when not in use.
+            // (No extra similarity pass, no postprocess blit path.)
+            try { (this.renderer as any).setWeightMapEnabled?.(false); } catch {}
+            try { (this.renderer as any).setWeightMapRelevancyEnabled?.(false); } catch {}
+            this.setPostProcessEnabled(false);
+            this.setPostProcessExtraTexture(null);
+        }
+    }
+
+    public setWeightOverlayApprox2Enabled(enabled: boolean, options?: { threshold?: number; opacity?: number }): void {
+        this.weightOverlayApprox2Enabled = !!enabled;
+        if (this.weightOverlayApprox2Enabled) this.weightOverlayEnabled = false;
+        // Reuse same UI params
+        if (options?.threshold !== undefined) this.weightOverlayThreshold = options.threshold;
+        if (options?.opacity !== undefined) this.weightOverlayOpacity = options.opacity;
+
+        if (!!enabled) {
+            // Ensure per-GS similarity path is off (mutual exclusion)
+            try { (this.renderer as any).setWeightMapEnabled?.(false); } catch {}
+            try { (this.renderer as any).setWeightMapRelevancyEnabled?.(false); } catch {}
+            try { (this.renderer as any).setWeightMapApprox2Enabled?.(true); } catch {}
+
+            this.setPostProcessEnabled(true);
+            this.setPostProcessShaderEx(this.getWeightOverlayApprox2Shader(), {
+                usesExtraTexture: true,
+                usesUniform: true,
+            });
+            this.ensureDummyPostProcessExtraTexture();
+            if (!this.postProcessExtraTexture) this.setPostProcessExtraTexture(this.dummyPostProcessExtraTexture);
+            this.updateWeightOverlayUniform();
+        } else {
+            try { (this.renderer as any).setWeightMapApprox2Enabled?.(false); } catch {}
+            this.setPostProcessEnabled(false);
+            this.setPostProcessExtraTexture(null);
+        }
+    }
+
+    private ensureDummyPostProcessExtraTexture(): void {
+        if (this.dummyPostProcessExtraTexture) return;
+        // 1x1 rgba16float is compatible with texture_2d<f32> sampling.
+        this.dummyPostProcessExtraTexture = this.device.createTexture({
+            label: 'postprocess/dummy-extra',
+            size: { width: 1, height: 1 },
+            format: 'rgba16float',
+            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        });
+        // Write zeros.
+        // WebGPU requires bytesPerRow to be a multiple of 256. For a 1x1 RGBA16F pixel,
+        // we upload one padded row (256 bytes) with the first 8 bytes = 0.
+        const padded = new Uint8Array(256);
+        this.device.queue.writeTexture(
+            { texture: this.dummyPostProcessExtraTexture },
+            padded,
+            { bytesPerRow: 256, rowsPerImage: 1 },
+            { width: 1, height: 1, depthOrArrayLayers: 1 }
+        );
+    }
+
+    private getWeightOverlayApprox2Shader(): string {
+        // extraTexture stores (num, den2) in rg, accumulated with premultiplied over.
+        // IMPORTANT: Do NOT declare bindings here. `ensurePostProcessPipeline()` injects:
+        // - sourceTexture/sourceSampler at bindings 0/1
+        // - extraTexture/extraSampler at bindings 3/4 (when usesExtraTexture=true)
+        // - postParams uniform at binding 5 (when usesUniform=true)
+        return /* wgsl */ `
+            fn sample_lut(t: f32, lut: array<vec3f, 16>) -> vec3f {
+                let x = clamp(t, 0.0, 1.0) * 15.0;
+                let i0 = u32(floor(x));
+                let i1 = min(15u, i0 + 1u);
+                let f = fract(x);
+                return mix(lut[i0], lut[i1], f);
+            }
+
+            const TURBO : array<vec3f, 16> = array<vec3f, 16>(
+                vec3f(0.189,0.071,0.232), vec3f(0.259,0.275,0.518), vec3f(0.241,0.488,0.706), vec3f(0.149,0.690,0.741),
+                vec3f(0.240,0.824,0.580), vec3f(0.508,0.902,0.329), vec3f(0.792,0.888,0.165), vec3f(0.961,0.787,0.173),
+                vec3f(0.992,0.620,0.208), vec3f(0.955,0.412,0.223), vec3f(0.843,0.231,0.233), vec3f(0.678,0.111,0.242),
+                vec3f(0.497,0.047,0.256), vec3f(0.330,0.034,0.271), vec3f(0.208,0.049,0.291), vec3f(0.140,0.078,0.299)
+            );
+            const VIRIDIS : array<vec3f, 16> = array<vec3f, 16>(
+                vec3f(0.267,0.005,0.329), vec3f(0.283,0.141,0.458), vec3f(0.254,0.265,0.530), vec3f(0.207,0.372,0.553),
+                vec3f(0.164,0.471,0.558), vec3f(0.128,0.567,0.551), vec3f(0.135,0.659,0.518), vec3f(0.267,0.749,0.441),
+                vec3f(0.478,0.821,0.318), vec3f(0.678,0.863,0.189), vec3f(0.824,0.884,0.106), vec3f(0.914,0.896,0.119),
+                vec3f(0.965,0.909,0.190), vec3f(0.988,0.933,0.308), vec3f(0.993,0.959,0.439), vec3f(0.993,0.984,0.603)
+            );
+            const INFERNO : array<vec3f, 16> = array<vec3f, 16>(
+                vec3f(0.002,0.005,0.013), vec3f(0.081,0.017,0.174), vec3f(0.206,0.016,0.318), vec3f(0.340,0.057,0.431),
+                vec3f(0.472,0.112,0.428), vec3f(0.604,0.176,0.401), vec3f(0.734,0.254,0.352), vec3f(0.845,0.353,0.285),
+                vec3f(0.930,0.466,0.220), vec3f(0.972,0.584,0.165), vec3f(0.988,0.708,0.153), vec3f(0.975,0.822,0.216),
+                vec3f(0.936,0.914,0.330), vec3f(0.885,0.967,0.476), vec3f(0.839,0.993,0.646), vec3f(0.988,0.998,0.905)
+            );
+            const MAGMA : array<vec3f, 16> = array<vec3f, 16>(
+                vec3f(0.001,0.000,0.014), vec3f(0.088,0.028,0.156), vec3f(0.212,0.060,0.304), vec3f(0.341,0.091,0.427),
+                vec3f(0.469,0.117,0.514), vec3f(0.595,0.157,0.558), vec3f(0.713,0.216,0.565), vec3f(0.815,0.298,0.540),
+                vec3f(0.895,0.404,0.490), vec3f(0.948,0.533,0.427), vec3f(0.976,0.678,0.363), vec3f(0.983,0.827,0.320),
+                vec3f(0.965,0.949,0.400), vec3f(0.992,0.991,0.545), vec3f(0.996,0.999,0.741), vec3f(0.998,0.999,0.918)
+            );
+            const PLASMA : array<vec3f, 16> = array<vec3f, 16>(
+                vec3f(0.050,0.030,0.528), vec3f(0.209,0.027,0.675), vec3f(0.353,0.049,0.725), vec3f(0.488,0.079,0.708),
+                vec3f(0.610,0.116,0.650), vec3f(0.710,0.164,0.563), vec3f(0.794,0.222,0.460), vec3f(0.861,0.292,0.357),
+                vec3f(0.909,0.376,0.266), vec3f(0.941,0.474,0.199), vec3f(0.958,0.585,0.163), vec3f(0.961,0.709,0.167),
+                vec3f(0.940,0.843,0.240), vec3f(0.883,0.945,0.375), vec3f(0.790,0.996,0.557), vec3f(0.637,0.996,0.714)
+            );
+            const JET : array<vec3f, 16> = array<vec3f, 16>(
+                vec3f(0.000,0.000,0.500), vec3f(0.000,0.000,1.000), vec3f(0.000,0.500,1.000), vec3f(0.000,1.000,1.000),
+                vec3f(0.500,1.000,0.500), vec3f(1.000,1.000,0.000), vec3f(1.000,0.500,0.000), vec3f(1.000,0.000,0.000),
+                vec3f(0.500,0.000,0.000), vec3f(0.500,0.000,0.000), vec3f(0.500,0.000,0.000), vec3f(0.500,0.000,0.000),
+                vec3f(0.500,0.000,0.000), vec3f(0.500,0.000,0.000), vec3f(0.500,0.000,0.000), vec3f(0.500,0.000,0.000)
+            );
+
+            fn colormap(t: f32, id: u32) -> vec3f {
+                if (id == 1u) { return sample_lut(t, VIRIDIS); }
+                if (id == 2u) { return sample_lut(t, INFERNO); }
+                if (id == 3u) { return sample_lut(t, MAGMA); }
+                if (id == 4u) { return sample_lut(t, PLASMA); }
+                if (id == 5u) { return sample_lut(t, JET); }
+                return sample_lut(t, TURBO);
+            }
+
+            @fragment
+            fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
+                let base = textureSample(sourceTexture, sourceSampler, uv);
+                let nd = textureSample(extraTexture, extraSampler, uv);
+                let num = nd.r;
+                let den2 = nd.g;
+                let sim = num / sqrt(max(1e-12, den2));
+                let similarity = clamp(max(0.0, sim), 0.0, 1.0);
+
+                let s = clamp(similarity, 0.0, 1.0);
+                let gateSmooth = max(1e-6, postParams.gateSmooth);
+                let gate = smoothstep(postParams.threshold, min(1.0, postParams.threshold + gateSmooth), s);
+                let hm = colormap(s, u32(postParams.colormap + 0.5));
+                let alpha = clamp(gate * postParams.opacity * postParams.gain, 0.0, 1.0);
+                let blendWithBase = postParams.blendWithBase > 0.5;
+                let out_rgb = select(hm * alpha, mix(base.rgb, hm, alpha), blendWithBase);
+                return vec4f(out_rgb, base.a);
+            }
+        `;
+    }
+
+    public setWeightOverlayParams(options: { threshold?: number; opacity?: number }): void {
+        if (options.threshold !== undefined) this.weightOverlayThreshold = options.threshold;
+        if (options.opacity !== undefined) this.weightOverlayOpacity = options.opacity;
+        this.updateWeightOverlayUniform();
+    }
+
+    public setWeightOverlayBlendWithBase(blendWithBase: boolean): void {
+        this.weightOverlayBlendWithBase = !!blendWithBase;
+        this.updateWeightOverlayUniform();
+    }
+
+    public setWeightOverlayVisualOptions(options: { gain?: number; colormap?: number }): void {
+        if (options.gain !== undefined) {
+            const g = Number(options.gain);
+            this.weightOverlayGain = Number.isFinite(g) ? Math.max(0.0, g) : this.weightOverlayGain;
+        }
+        if (options.colormap !== undefined) {
+            const c = Number(options.colormap);
+            this.weightOverlayColormap = Number.isFinite(c) ? Math.max(0, Math.floor(c)) : this.weightOverlayColormap;
+        }
+        this.updateWeightOverlayUniform();
+    }
+
+    public setWeightOverlayUseRelevancy(enabled: boolean, tau: number = 10.0): void {
+        this.weightOverlayUseRelevancy = !!enabled;
+        this.weightOverlayRelevancyTau = Number.isFinite(tau) ? Math.max(1e-6, tau) : 10.0;
+    }
+
+    /** Provide packed queries for relevancy: 5x64 floats [pos, neg0..3]. */
+    public setWeightOverlayRelevancyData(packedQueries: Float32Array, gram64x64: Float32Array, negMask: number = 0xF): void {
+        try {
+            (this.renderer as any).setWeightRelevancyData?.(
+                packedQueries,
+                gram64x64,
+                true,
+                this.weightOverlayRelevancyTau,
+                negMask
+            );
+        } catch {}
+    }
+
+    /**
      * Diagnostic: Check if depth is properly configured
      */
     public diagnoseDepth(): void {
@@ -742,6 +1125,436 @@ export class GaussianThreeJSRenderer extends THREE.Mesh {
         this.overlayBindGroupLayout = null;
         this.overlaySampler = null;
         this.overlayRenderedThisFrame = false;
+
+        if (this.postProcessTarget) {
+            this.postProcessTarget.destroy();
+            this.postProcessTarget = null;
+        }
+        this.postProcessTargetView = null;
+        this.postProcessTargetWidth = 0;
+        this.postProcessTargetHeight = 0;
+        this.postProcessSampler = null;
+        this.postProcessBindGroupLayout = null;
+        this.postProcessPipeline = null;
+        this.postProcessExtraTexture = null;
+        this.postProcessExtraSampler = null;
+        this.postProcessUsesExtraTexture = false;
+        this.postProcessUsesUniform = false;
+        this.postProcessUniformBuffer = null;
+        this.weightOverlayEnabled = false;
+        this.weightOverlayApprox2Enabled = false;
+    }
+
+    private ensurePostProcessTarget(width: number, height: number): GPUTextureView | null {
+        if (!this.postProcessEnabled) return null;
+        if (!this.device) return null;
+
+        const w = Math.max(1, Math.floor(width));
+        const h = Math.max(1, Math.floor(height));
+
+        if (this.postProcessTarget && this.postProcessTargetWidth === w && this.postProcessTargetHeight === h) {
+            return this.postProcessTargetView;
+        }
+
+        if (this.postProcessTarget) {
+            this.postProcessTarget.destroy();
+        }
+
+        this.postProcessTarget = this.device.createTexture({
+            label: 'GS postprocess target',
+            size: { width: w, height: h },
+            format: this.canvasFormat,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+        });
+        this.postProcessTargetView = this.postProcessTarget.createView();
+        this.postProcessTargetWidth = w;
+        this.postProcessTargetHeight = h;
+        return this.postProcessTargetView;
+    }
+
+    private ensurePostProcessUniformBuffer(): void {
+        if (this.postProcessUniformBuffer) return;
+        this.postProcessUniformBuffer = this.device.createBuffer({
+            label: 'postprocess params',
+            size: 32, // 2 * vec4<f32>
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+    }
+
+    private updateWeightOverlayUniform(): void {
+        // Both heatmap algorithms share the same postprocess uniform.
+        if (!this.weightOverlayEnabled && !this.weightOverlayApprox2Enabled) return;
+        this.ensurePostProcessUniformBuffer();
+        const data = new Float32Array([
+            this.weightOverlayThreshold,
+            this.weightOverlayOpacity,
+            this.weightOverlayBlendWithBase ? 1.0 : 0.0,
+            this.weightOverlayGain,
+            // vec4 #2
+            this.weightOverlayColormap,
+            0, // reserved (gamma etc.)
+            0.02, // gate smoothness in [0,1] similarity space
+            0,
+        ]);
+        this.device.queue.writeBuffer(
+            this.postProcessUniformBuffer!,
+            0,
+            data.buffer,
+            data.byteOffset,
+            data.byteLength
+        );
+    }
+
+    private getWeightOverlayShader(): string {
+        return `
+            fn sample_lut(t: f32, lut: array<vec3f, 16>) -> vec3f {
+                let x = clamp(t, 0.0, 1.0) * 15.0;
+                let i0 = u32(floor(x));
+                let i1 = min(15u, i0 + 1u);
+                let f = fract(x);
+                return mix(lut[i0], lut[i1], f);
+            }
+
+            const TURBO : array<vec3f, 16> = array<vec3f, 16>(
+                vec3f(0.189,0.071,0.232), vec3f(0.259,0.275,0.518), vec3f(0.241,0.488,0.706), vec3f(0.149,0.690,0.741),
+                vec3f(0.240,0.824,0.580), vec3f(0.508,0.902,0.329), vec3f(0.792,0.888,0.165), vec3f(0.961,0.787,0.173),
+                vec3f(0.992,0.620,0.208), vec3f(0.955,0.412,0.223), vec3f(0.843,0.231,0.233), vec3f(0.678,0.111,0.242),
+                vec3f(0.497,0.047,0.256), vec3f(0.330,0.034,0.271), vec3f(0.208,0.049,0.291), vec3f(0.140,0.078,0.299)
+            );
+            const VIRIDIS : array<vec3f, 16> = array<vec3f, 16>(
+                vec3f(0.267,0.005,0.329), vec3f(0.283,0.141,0.458), vec3f(0.254,0.265,0.530), vec3f(0.207,0.372,0.553),
+                vec3f(0.164,0.471,0.558), vec3f(0.128,0.567,0.551), vec3f(0.135,0.659,0.518), vec3f(0.267,0.749,0.441),
+                vec3f(0.478,0.821,0.318), vec3f(0.678,0.863,0.189), vec3f(0.824,0.884,0.106), vec3f(0.914,0.896,0.119),
+                vec3f(0.965,0.909,0.190), vec3f(0.988,0.933,0.308), vec3f(0.993,0.959,0.439), vec3f(0.993,0.984,0.603)
+            );
+            const INFERNO : array<vec3f, 16> = array<vec3f, 16>(
+                vec3f(0.002,0.005,0.013), vec3f(0.081,0.017,0.174), vec3f(0.206,0.016,0.318), vec3f(0.340,0.057,0.431),
+                vec3f(0.472,0.112,0.428), vec3f(0.604,0.176,0.401), vec3f(0.734,0.254,0.352), vec3f(0.845,0.353,0.285),
+                vec3f(0.930,0.466,0.220), vec3f(0.972,0.584,0.165), vec3f(0.988,0.708,0.153), vec3f(0.975,0.822,0.216),
+                vec3f(0.936,0.914,0.330), vec3f(0.885,0.967,0.476), vec3f(0.839,0.993,0.646), vec3f(0.988,0.998,0.905)
+            );
+            const MAGMA : array<vec3f, 16> = array<vec3f, 16>(
+                vec3f(0.001,0.000,0.014), vec3f(0.088,0.028,0.156), vec3f(0.212,0.060,0.304), vec3f(0.341,0.091,0.427),
+                vec3f(0.469,0.117,0.514), vec3f(0.595,0.157,0.558), vec3f(0.713,0.216,0.565), vec3f(0.815,0.298,0.540),
+                vec3f(0.895,0.404,0.490), vec3f(0.948,0.533,0.427), vec3f(0.976,0.678,0.363), vec3f(0.983,0.827,0.320),
+                vec3f(0.965,0.949,0.400), vec3f(0.992,0.991,0.545), vec3f(0.996,0.999,0.741), vec3f(0.998,0.999,0.918)
+            );
+            const PLASMA : array<vec3f, 16> = array<vec3f, 16>(
+                vec3f(0.050,0.030,0.528), vec3f(0.209,0.027,0.675), vec3f(0.353,0.049,0.725), vec3f(0.488,0.079,0.708),
+                vec3f(0.610,0.116,0.650), vec3f(0.710,0.164,0.563), vec3f(0.794,0.222,0.460), vec3f(0.861,0.292,0.357),
+                vec3f(0.909,0.376,0.266), vec3f(0.941,0.474,0.199), vec3f(0.958,0.585,0.163), vec3f(0.961,0.709,0.167),
+                vec3f(0.940,0.843,0.240), vec3f(0.883,0.945,0.375), vec3f(0.790,0.996,0.557), vec3f(0.637,0.996,0.714)
+            );
+            const JET : array<vec3f, 16> = array<vec3f, 16>(
+                vec3f(0.000,0.000,0.500), vec3f(0.000,0.000,1.000), vec3f(0.000,0.500,1.000), vec3f(0.000,1.000,1.000),
+                vec3f(0.500,1.000,0.500), vec3f(1.000,1.000,0.000), vec3f(1.000,0.500,0.000), vec3f(1.000,0.000,0.000),
+                vec3f(0.500,0.000,0.000), vec3f(0.500,0.000,0.000), vec3f(0.500,0.000,0.000), vec3f(0.500,0.000,0.000),
+                vec3f(0.500,0.000,0.000), vec3f(0.500,0.000,0.000), vec3f(0.500,0.000,0.000), vec3f(0.500,0.000,0.000)
+            );
+
+            fn colormap(t: f32, id: u32) -> vec3f {
+                if (id == 1u) { return sample_lut(t, VIRIDIS); }
+                if (id == 2u) { return sample_lut(t, INFERNO); }
+                if (id == 3u) { return sample_lut(t, MAGMA); }
+                if (id == 4u) { return sample_lut(t, PLASMA); }
+                if (id == 5u) { return sample_lut(t, JET); }
+                return sample_lut(t, TURBO);
+            }
+
+            @fragment
+            fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
+                let base = textureSample(sourceTexture, sourceSampler, uv);
+                // The extraTexture stores per-pixel language similarity in [0, 1].
+                let similarity = textureSample(extraTexture, extraSampler, uv).r;
+                let s = clamp(similarity, 0.0, 1.0);
+                let gateSmooth = max(1e-6, postParams.gateSmooth);
+                let gate = smoothstep(postParams.threshold, min(1.0, postParams.threshold + gateSmooth), s);
+                let hm = colormap(s, u32(postParams.colormap + 0.5));
+                let alpha = clamp(gate * postParams.opacity * postParams.gain, 0.0, 1.0);
+                let blendWithBase = postParams.blendWithBase > 0.5;
+                let out_rgb = select(hm * alpha, mix(base.rgb, hm, alpha), blendWithBase);
+                return vec4<f32>(out_rgb, base.a);
+            }
+        `;
+    }
+
+    private async computeQueryWeightsFromUrls(
+        codebookUrl: string,
+        queryListUrl: string,
+        queryName?: string
+    ): Promise<Float32Array> {
+        const [codebookBuffer, queryJson] = await Promise.all([
+            fetch(codebookUrl).then(async (res) => {
+                if (!res.ok) {
+                    throw new Error(`Failed to fetch codebook: ${res.status} ${res.statusText}`);
+                }
+                return res.arrayBuffer();
+            }),
+            fetch(queryListUrl).then(async (res) => {
+                if (!res.ok) {
+                    throw new Error(`Failed to fetch query list: ${res.status} ${res.statusText}`);
+                }
+                return res.json();
+            }),
+        ]);
+
+        const codebook = new Float32Array(codebookBuffer);
+        const queryVector = this.extractQueryVector(queryJson, queryName);
+        return this.computeQueryWeights(codebook, queryVector);
+    }
+
+    private extractQueryVector(queryJson: any, queryName?: string): Float32Array {
+        const queries = queryJson?.queries;
+        if (!Array.isArray(queries) || queries.length === 0) {
+            throw new Error('Query list JSON has no queries');
+        }
+        const selected = queryName
+            ? queries.find((q: any) => q?.name === queryName)
+            : queries[0];
+        if (!selected || !Array.isArray(selected.vector)) {
+            throw new Error('Query vector not found in query list JSON');
+        }
+        return new Float32Array(selected.vector);
+    }
+
+    private computeQueryWeights(codebook: Float32Array, queryVector: Float32Array): Float32Array {
+        const rows = 64;
+        const cols = 512;
+        if (codebook.length !== rows * cols) {
+            throw new Error(`Codebook length mismatch: expected ${rows * cols}, got ${codebook.length}`);
+        }
+        if (queryVector.length !== cols) {
+            throw new Error(`Query vector length mismatch: expected ${cols}, got ${queryVector.length}`);
+        }
+        // L2 normalize query (defensive; exporter may or may not have normalized)
+        const q = new Float32Array(queryVector);
+        {
+            let n2 = 0;
+            for (let i = 0; i < q.length; i++) n2 += q[i] * q[i];
+            const inv = n2 > 1e-12 ? 1.0 / Math.sqrt(n2) : 1.0;
+            for (let i = 0; i < q.length; i++) q[i] *= inv;
+        }
+
+        const out = new Float32Array(rows);
+        for (let r = 0; r < rows; r++) {
+            let sum = 0;
+            const rowBase = r * cols;
+            for (let c = 0; c < cols; c++) {
+                sum += codebook[rowBase + c] * q[c];
+            }
+            out[r] = sum;
+        }
+        return out;
+    }
+
+    private computeGramMatrix(codebook: Float32Array): Float32Array {
+        const rows = 64;
+        const cols = 512;
+        if (codebook.length !== rows * cols) {
+            throw new Error(`Codebook length mismatch: expected ${rows * cols}, got ${codebook.length}`);
+        }
+        const gram = new Float32Array(rows * rows);
+        for (let i = 0; i < rows; i++) {
+            const iBase = i * cols;
+            for (let j = i; j < rows; j++) {
+                const jBase = j * cols;
+                let sum = 0;
+                for (let k = 0; k < cols; k++) {
+                    sum += codebook[iBase + k] * codebook[jBase + k];
+                }
+                gram[i * rows + j] = sum;
+                gram[j * rows + i] = sum;
+            }
+        }
+        return gram;
+    }
+
+    private ensurePostProcessPipeline(device: GPUDevice): GPURenderPipeline {
+        if (this.postProcessPipeline && this.postProcessBindGroupLayout) {
+            return this.postProcessPipeline;
+        }
+
+        const bindGroupEntries: GPUBindGroupLayoutEntry[] = [
+            {
+                binding: 0,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: { viewDimension: '2d' },
+            },
+            {
+                binding: 1,
+                visibility: GPUShaderStage.FRAGMENT,
+                sampler: {},
+            },
+        ];
+
+        if (this.postProcessUsesDepth) {
+            bindGroupEntries.push({
+                binding: 2,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: { sampleType: 'depth' },
+            });
+        }
+
+        if (this.postProcessUsesExtraTexture) {
+            bindGroupEntries.push({
+                binding: 3,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: { viewDimension: '2d' },
+            });
+            bindGroupEntries.push({
+                binding: 4,
+                visibility: GPUShaderStage.FRAGMENT,
+                sampler: {},
+            });
+        }
+
+        if (this.postProcessUsesUniform) {
+            bindGroupEntries.push({
+                binding: 5,
+                visibility: GPUShaderStage.FRAGMENT,
+                buffer: { type: 'uniform' },
+            });
+        }
+
+        this.postProcessBindGroupLayout = device.createBindGroupLayout({
+            entries: bindGroupEntries,
+        });
+
+        const fragmentCode = `
+            @group(0) @binding(0) var sourceTexture: texture_2d<f32>;
+            @group(0) @binding(1) var sourceSampler: sampler;
+            ${this.postProcessUsesDepth ? '@group(0) @binding(2) var sourceDepth: texture_depth_2d;' : ''}
+            ${this.postProcessUsesExtraTexture ? '@group(0) @binding(3) var extraTexture: texture_2d<f32>;\n@group(0) @binding(4) var extraSampler: sampler;' : ''}
+            ${this.postProcessUsesUniform ? 'struct PostProcessParams { threshold: f32, opacity: f32, blendWithBase: f32, gain: f32, colormap: f32, gamma: f32, gateSmooth: f32, _pad0: f32 };\n@group(0) @binding(5) var<uniform> postParams: PostProcessParams;' : ''}
+
+            ${this.postProcessFragmentWGSL ?? `
+            @fragment
+            fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
+                return textureSample(sourceTexture, sourceSampler, uv);
+            }
+            `}
+        `;
+
+        const shaderModule = device.createShaderModule({
+            code: `
+                struct VertexOutput {
+                    @builtin(position) position : vec4f,
+                    @location(0) uv : vec2f,
+                };
+
+                @vertex
+                fn vs_main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
+                    var positions = array<vec2f, 6>(
+                        vec2f(-1.0, -1.0), vec2f(1.0, -1.0), vec2f(-1.0, 1.0),
+                        vec2f(-1.0, 1.0),  vec2f(1.0, -1.0), vec2f(1.0, 1.0)
+                    );
+                    var uvs = array<vec2f, 6>(
+                        vec2f(0.0, 1.0), vec2f(1.0, 1.0), vec2f(0.0, 0.0),
+                        vec2f(0.0, 0.0), vec2f(1.0, 1.0), vec2f(1.0, 0.0)
+                    );
+
+                    var output : VertexOutput;
+                    output.position = vec4f(positions[vertexIndex], 0.0, 1.0);
+                    output.uv = uvs[vertexIndex];
+                    return output;
+                }
+
+                ${fragmentCode}
+            `,
+        });
+
+        this.postProcessPipeline = device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [this.postProcessBindGroupLayout] }),
+            vertex: {
+                module: shaderModule,
+                entryPoint: 'vs_main',
+            },
+            fragment: {
+                module: shaderModule,
+                entryPoint: 'fs_main',
+                targets: [
+                    {
+                        format: this.canvasFormat,
+                    },
+                ],
+            },
+            primitive: {
+                topology: 'triangle-list',
+            },
+        });
+
+        return this.postProcessPipeline;
+    }
+
+    private runPostProcessPass(
+        device: GPUDevice,
+        encoder: GPUCommandEncoder,
+        sourceTexture: GPUTexture,
+        targetView: GPUTextureView,
+        depthView?: GPUTextureView
+    ): void {
+        if (!this.postProcessEnabled) return;
+        if (this.postProcessUsesDepth && !depthView) {
+            console.warn('[PostProcess] Depth requested but not available, skipping pass.');
+            return;
+        }
+        if (this.postProcessUsesExtraTexture && !this.postProcessExtraTexture) {
+            console.warn('[PostProcess] Extra texture requested but not available, skipping pass.');
+            return;
+        }
+        if (this.postProcessUsesUniform && !this.postProcessUniformBuffer) {
+            this.ensurePostProcessUniformBuffer();
+        }
+
+        if (!this.postProcessSampler) {
+            this.postProcessSampler = device.createSampler({
+                magFilter: 'linear',
+                minFilter: 'linear',
+            });
+        }
+
+        const pipeline = this.ensurePostProcessPipeline(device);
+        const bindGroupEntries: GPUBindGroupEntry[] = [
+            { binding: 0, resource: sourceTexture.createView() },
+            { binding: 1, resource: this.postProcessSampler },
+        ];
+        if (this.postProcessUsesDepth && depthView) {
+            bindGroupEntries.push({ binding: 2, resource: depthView });
+        }
+        if (this.postProcessUsesExtraTexture && this.postProcessExtraTexture) {
+            if (!this.postProcessExtraSampler) {
+                this.postProcessExtraSampler = device.createSampler({
+                    magFilter: 'linear',
+                    minFilter: 'linear',
+                });
+            }
+            bindGroupEntries.push({ binding: 3, resource: this.postProcessExtraTexture.createView() });
+            bindGroupEntries.push({ binding: 4, resource: this.postProcessExtraSampler });
+        }
+        if (this.postProcessUsesUniform && this.postProcessUniformBuffer) {
+            bindGroupEntries.push({ binding: 5, resource: { buffer: this.postProcessUniformBuffer } });
+        }
+
+        const bindGroup = device.createBindGroup({
+            layout: this.postProcessBindGroupLayout!,
+            entries: bindGroupEntries,
+        });
+
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [
+                {
+                    view: targetView,
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: { r: 0, g: 0, b: 0, a: 1 },
+                },
+            ],
+        });
+
+        pass.setPipeline(pipeline);
+        pass.setBindGroup(0, bindGroup);
+        pass.draw(6, 1, 0, 0);
+        pass.end();
     }
 
     private getViewport(): [number, number] {

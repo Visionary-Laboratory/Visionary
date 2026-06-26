@@ -109,6 +109,21 @@ export class SceneFS {
     }
   }
 
+  async setRootHandle(handle: FileSystemDirectoryHandle,permissions: 'read' | 'readwrite') {
+    try {
+      await this.ensurePermission(handle, permissions);
+      this.rootHandle = handle;
+      this.permissions = permissions;
+      
+      console.log('SceneFS: Root folder selected (read-only)', handle.name);
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        throw new Error('Folder selection cancelled by user');
+      }
+      throw new Error(`Failed to select read folder: ${(error as Error).message}`);
+    }
+  }
+
   /**
    * Select root directory for read-write access
    */
@@ -190,6 +205,7 @@ export class SceneFS {
 
   /**
    * 从 scenes[]（统一场景格式）加载到双视窗
+   * 修改：支持加载 url 类型的模型，typeTag=url 时，直接加载 url 资源
    */
   private async loadScenesArrayIntoApp(app: any, raw: { scenes: Array<{ models: Array<any>; keyframes?: any[] }>, meta?: any, env?: any }): Promise<void> {
     const sceneCount = raw.scenes.length;
@@ -302,6 +318,18 @@ export class SceneFS {
           }
           if (sceneView && Array.isArray(m.trs) && typeof sceneView.applyTRSToObject === 'function') {
             sceneView.applyTRSToObject(m.id || m.name, m.trs);
+          }
+        }else if(typeTag==='url'){ // typeTag=url 时，直接加载 url 资源
+          try {
+            const sourceurl = this.resolveModelSource(m);
+            if (!sourceurl) {
+              console.warn('SceneFS: url 缺少可识别的资源路径，跳过', m);
+              continue;
+            }
+            await this.loadModelFromUrl(app, sceneView, viewId, sourceurl, m);
+          } catch (error) {
+            console.warn('SceneFS: 通过 URL 加载模型失败:', error);
+            continue;
           }
         } else if (typeTag === 'recordingCamera') {
           if (sceneView && typeof sceneView.restoreRecordingCameraFromSerialized === 'function') {

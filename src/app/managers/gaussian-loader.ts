@@ -9,7 +9,8 @@ import { GaussianModel } from "../GaussianModel";
 import { ModelEntry } from "../../models/model-entry";
 import { FileLoader } from "./file-loader";
 import { ONNXManager, ONNXLoadOptions } from "./onnx-manager";
-import { isGaussianFormat, detectGaussianFormat } from "../../io";
+import { isGaussianFormat, detectGaussianFormat, WeightPLYLoader } from "../../io";
+import { PointCloud } from "../../point_cloud";
 
 export interface GaussianLoadOptions {
     name?: string;
@@ -171,6 +172,30 @@ export class GaussianLoader {
         );
         
         return new GaussianModel(entry);
+    }
+
+    /**
+     * Attach per-point weights from a separate PLY file.
+     * The weight PLY must contain weight_0..weight_63 for each vertex.
+     */
+    async attachWeightsFromPLY(
+        renderer: THREE.WebGPURenderer,
+        model: GaussianModel,
+        weightsPath: string
+    ): Promise<void> {
+        const device = (renderer.backend as any).device as GPUDevice;
+        const loader = new WeightPLYLoader();
+        const data = await loader.loadUrl(weightsPath);
+        const pc = model.getPointCloud();
+        if (!(pc instanceof PointCloud)) {
+            throw new Error('attachWeightsFromPLY: model is not a PointCloud');
+        }
+        if (data.numPoints() !== pc.numPoints) {
+            console.warn(
+                `[GaussianLoader] Weight PLY point count (${data.numPoints()}) does not match model (${pc.numPoints})`
+            );
+        }
+        pc.setWeightBufferFromArray(device, new Float32Array(data.weightsBuffer()), 64);
     }
 
     /**

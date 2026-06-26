@@ -119,7 +119,8 @@ export class OnnxGpuIO {
     try {
       // Configure ONNX Runtime
       ort.env.wasm.numThreads = 1;
-      ort.env.logLevel = 'verbose';
+      // ort.env.logLevel = 'verbose';
+      ort.env.logLevel = 'warning'; // 设置为warning，避免输出太多日志
 
       // ort.env.webgpu.profiling = {
       //   mode: 'default',
@@ -128,14 +129,28 @@ export class OnnxGpuIO {
 
 
       // this.log("profiling enbabled")
-      // ort.env.wasm.wasmPaths = '/src/ort/'; // Ensure WASM files are accessible
+      ort.env.wasm.wasmPaths = '/src/ort/'; // Ensure WASM files are accessible
       // 路径配置现在通过 initOrtEnvironment 函数处理
       
       // Set the WebGPU device for ONNX Runtime to use the same device
       // ort.env.webgpu.device =  cfg.device ;
 
     // 任何时候你要用到 device 时，先做这两句
-    
+      // Set env.device for builds/paths that read it. After the dummy session, JSEP defines
+      // ort.env.webgpu.device with Object.defineProperty(..., { writable: false }), so assign
+      // can throw. Rely on executionProviders.device for session creation when env is read-only.
+      try {
+        const webgpuEnv = (ort.env as any).webgpu;
+        if (webgpuEnv) {
+          const desc = Object.getOwnPropertyDescriptor(webgpuEnv, 'device');
+          if (!desc || desc.writable !== false) {
+            webgpuEnv.device = cfg.device;
+          }
+        }
+      } catch {
+        // env.webgpu.device may be read-only (JSEP sets it non-writable); session options pass device
+      }    
+
     this.log('isGPUDevice?', cfg.device && typeof cfg.device.createBuffer === 'function' && !!cfg.device.queue);
 
       this.log('ONNX Runtime environment configured with provided WebGPU device');
@@ -169,12 +184,15 @@ export class OnnxGpuIO {
       throw new Error(`modelUrl cannot be empty. Got: "${modelPath}"`);
     }
     
-    const buildSessionOptions = (graphCaptureEnabled: boolean) => ({
+    // Pass app's GPUDevice in EP options so native WebGPU EP uses it (avoids adapter.requestDevice
+    // which fails with "adapter is consumed" when Three.js already created a device from the same adapter).
+    const buildSessionOptions = (graphCaptureEnabled: boolean): ort.InferenceSession.SessionOptions => ({
       executionProviders: [{
         name: 'webgpu',
+        device: cfg.device, // helen add 0206
         deviceId: 0,
         powerPreference: 'high-performance'
-      }],
+      } as ort.InferenceSession.WebGpuExecutionProviderOption & { device: GPUDevice }], // helen add 0206
       graphOptimizationLevel: 'extended' as const,
       preferredOutputLocation: 'gpu-buffer' as const,
       enableGraphCapture: graphCaptureEnabled && (!debug_graph),

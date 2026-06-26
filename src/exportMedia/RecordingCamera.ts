@@ -30,13 +30,15 @@ export class RecordingCamera {
     private recordingBackground: THREE.Texture | null = null; // 录制渲染器专用的背景
     private originalEnvMap: THREE.Texture | null = null; // 保存原始环境贴图
     private originalBackground: THREE.Texture | THREE.Color | null = null; // 保存原始背景
+    private skyboxEnabled: boolean = true; // 是否在录制时替换天空盒
 
     private statusDom: HTMLElement | null = null;
     private cameraInfoDom: HTMLElement | null = null;
     private titleDom: HTMLElement | null = null;
     private cameraName: string = '';
+    private isSync: boolean = false;
 
-    constructor(id: string, width: number = 1920, height: number = 1080, fov: number = 55, showPreview: boolean = true, cameraName: string = '') {
+    constructor(id: string, width: number = 1920, height: number = 1080, fov: number = 55, showPreview: boolean = true, cameraName: string = '', isSync: boolean = false) {
         this.parentNodeId = id;
         this.domId = `recordingOverlay_${this.parentNodeId}`;
         // 创建独立的录制相机
@@ -45,32 +47,21 @@ export class RecordingCamera {
         this.width = width;
         this.height = height;
         this.showPreview = showPreview;
+        this.isSync = isSync;
         const overlayDom = document.getElementById(this.domId);
         if (overlayDom) {
             this.overlayContainer = overlayDom;
             this.canvas = this.overlayContainer.querySelector('canvas') as HTMLCanvasElement;
             console.log("overlayContainer----", this.overlayContainer, this.canvas);
-            this.titleDom = this.overlayContainer.querySelector('.recording-overlay-title') as HTMLElement;
+            this.titleDom = this.overlayContainer.querySelector('.recording-overlay-title-name') as HTMLElement;
         }
-        // 创建渲染目标
-        // this.ensureCanvas();
     }
 
     public isInitialized(): boolean {
         return !!this.renderer;
     }
 
-    private ensureCanvas() {
-        if (this.showPreview) {
-            this.createOverlayCanvas(this.width, this.height);
-        } else {
-            this.createHiddenCanvas(this.width, this.height);
-        }
-    }
-
-    public ensurePreviewWindow() {
-        // console.log("ensure Preview Window----", this.overlayContainer,document.getElementById(this.domId), document.body.contains(this.overlayContainer));
-
+    public ensurePreviewWindow(currLang: string = 'zh') {
         if (this.overlayContainer && document.body.contains(this.overlayContainer)) {
             // this.overlayContainer.style.display = 'block';
             this.overlayContainer.style.visibility = 'visible';
@@ -80,7 +71,7 @@ export class RecordingCamera {
                 this.canvas = this.overlayContainer.querySelector('canvas') as HTMLCanvasElement;
             }
             if(!this.titleDom) {
-                this.titleDom = this.overlayContainer.querySelector('.recording-overlay-title') as HTMLElement;
+                this.titleDom = this.overlayContainer.querySelector('.recording-overlay-title-name') as HTMLElement;
             }
             console.log('[RecordingCamera] 预览窗口已存在，显示窗口');
             return;
@@ -88,7 +79,7 @@ export class RecordingCamera {
 
         this.showPreview = true;
         console.log('[RecordingCamera] 创建新的预览窗口');
-        this.createOverlayCanvas(this.width, this.height);
+        this.createOverlayCanvas(this.width, this.height,currLang);
 
         // 确保窗口创建后立即可见
         if (this.overlayContainer) {
@@ -104,21 +95,29 @@ export class RecordingCamera {
             this.isPreviewShow = false;
         }
     }
-    public showPreviewWindow() {
-        console.log("显示名字------showPreviewWindow----", this.cameraName);
+    public showPreviewWindow(skyboxEnabled: boolean = true) {
         if (this.titleDom) {
-            this.titleDom.textContent = `录制预览 - ${this.cameraName}`;
+            this.titleDom.textContent = ` - ${this.cameraName}`; // 多语言
         }
         if (this.overlayContainer) {
             this.overlayContainer.style.display = 'block';
             this.isPreviewShow = true;
         }
+        this.setSkyboxEnabled(skyboxEnabled); 
     }
     public setCameraName(name: string) {
+        // console.log("设置名字------set CameraName----", name);
         this.cameraName = name;
         if (this.titleDom) {
-            this.titleDom.textContent = `录制预览 - ${this.cameraName}`;
+            this.titleDom.textContent = ` - ${this.cameraName}`; // 多语言
         }
+    }
+
+    /**
+     * 开关录制时的天空盒替换
+     */
+    public setSkyboxEnabled(enabled: boolean) {
+        this.skyboxEnabled = enabled;
     }
 
     public isPreviewVisible(): boolean {
@@ -182,7 +181,7 @@ export class RecordingCamera {
         this.editorHelperVisibilityCache.length = 0;
     }
 
-    private createOverlayCanvas(width: number, height: number) {
+    private createOverlayCanvas(width: number, height: number, currLang: string = 'zh') {
         this.cleanupCanvasElements();
         this.showPreview = true;
         const overlayDom = document.getElementById(this.domId);
@@ -195,21 +194,44 @@ export class RecordingCamera {
             this.overlayContainer.id = this.domId;
             this.overlayContainer.classList.add('recording-overlay-container');
 
+            let titleTextStr='录制预览',syncTextStr=' - 同步录制相机';
+
+            if(currLang === 'zh') {
+                titleTextStr = '录制预览';
+                syncTextStr = ' - 同步录制相机';
+            } else if(currLang === 'en') {
+                titleTextStr = 'Preview';
+                syncTextStr = ' - Sync Camera';
+            }
+
             // 创建标题栏（可拖动）
             const titleBar = document.createElement('div');
             titleBar.classList.add('title-bar');
 
-            const title = document.createElement('h3');
-            title.textContent = '录制预览';
-            title.classList.add('recording-overlay-title');
-            this.titleDom=title;
+            const titleContent = document.createElement('h3');
+            titleContent.classList.add('recording-overlay-title');
+            const titleText=document.createElement('span');
+            titleText.textContent = titleTextStr;
+            titleText.setAttribute('data-i18n', 'recordingCamera.previewWindowTitle');
+            titleContent.appendChild(titleText);
+            if(this.isSync) {    
+                const syncText=document.createElement('span');
+                syncText.textContent = syncTextStr;
+                syncText.setAttribute('data-i18n', 'recordingCamera.syncPreviewTitle');
+                titleContent.appendChild(syncText);
+            }
+            const titleName=document.createElement('span');
+            titleName.classList.add('recording-overlay-title-name');
+            titleName.textContent = this.cameraName;
+            titleContent.appendChild(titleName);
+            this.titleDom=titleName;
 
             const closeBtn = document.createElement('button');
             closeBtn.textContent = '×';
             closeBtn.classList.add('recording-overlay-close-btn');
             closeBtn.onclick = () => this.hidePreviewWindow();
 
-            titleBar.appendChild(title);
+            titleBar.appendChild(titleContent);
             titleBar.appendChild(closeBtn);
             this.overlayContainer.appendChild(titleBar);
 
@@ -242,13 +264,6 @@ export class RecordingCamera {
         `;
             canvasContainer.appendChild(this.canvas);
             this.overlayContainer.appendChild(canvasContainer);
-
-            // 添加状态信息
-            const status = document.createElement('div');
-            status.classList.add('recording-overlay-status');
-            status.textContent = '准备录制...';
-            this.statusDom=status;
-            this.overlayContainer.appendChild(status);
 
             // 添加相机信息
             const cameraInfo = document.createElement('div');
@@ -950,16 +965,14 @@ export class RecordingCamera {
             // ✅ 关键修复：更新相机矩阵，确保isVisible()能正确判断可见性
             this.camera.updateMatrixWorld();
 
-            // ✅ 保存原始值（如果还没有保存）
-            if (this.originalEnvMap === null) {
-                this.originalEnvMap = scene.environment;
-            }
-            if (this.originalBackground === null) {
-                this.originalBackground = scene.background;
-            }
+            // ✅ 修复：每次渲染前都重新保存当前场景状态，而不是只在第一次保存
+            // 这样可以确保如果场景状态在导出过程中被外部修改（如 setSkyboxEnabled），
+            // 我们保存的是最新的状态，而不是第一次调用时的旧状态
+            this.originalEnvMap = scene.environment;
+            this.originalBackground = scene.background;
             
-            // ✅ 如果为录制渲染器创建了独立的环境贴图和背景，临时替换
-            if (this.recordingEnvMap && this.recordingBackground) {
+            // ✅ 如果开启天空盒替换且已准备独立环境，临时替换
+            if (this.skyboxEnabled && this.recordingEnvMap && this.recordingBackground) {
                 scene.environment = this.recordingEnvMap;
                 scene.background = this.recordingBackground;
             }
@@ -996,7 +1009,7 @@ export class RecordingCamera {
                 }
                 
                 // ✅ 如果为录制渲染器创建了独立的环境贴图和背景，临时替换
-                if (this.recordingEnvMap && this.recordingBackground) {
+                if (this.skyboxEnabled && this.recordingEnvMap && this.recordingBackground) {
                     scene.environment = this.recordingEnvMap;
                     scene.background = this.recordingBackground;
                 }
@@ -1005,9 +1018,12 @@ export class RecordingCamera {
                     this.renderer.render(scene, this.camera);
                 }
             } finally {
-                // ✅ 恢复原始值（避免影响主渲染器）
-                if (this.recordingEnvMap && this.recordingBackground) {
+                // ✅ 修复：始终恢复原始值，无论 skyboxEnabled 状态如何
+                // 这样可以确保场景状态在渲染后正确恢复，避免被临时替换的值覆盖
+                if (this.originalEnvMap !== null) {
                     scene.environment = this.originalEnvMap;
+                }
+                if (this.originalBackground !== null) {
                     scene.background = this.originalBackground;
                 }
             }
@@ -1018,12 +1034,9 @@ export class RecordingCamera {
             if (device && device.queue) {
                 await device.queue.onSubmittedWorkDone();
             }
-
-            // this.updateStatusInfo('预览中...');
-
         } catch (error) {
-            console.error('[RecordingCamera] 录制相机渲染失败:', error);
-            this.updateStatusInfo('渲染失败');
+            console.error('[RecordingCamera] 录制相机渲染失败error:', error);
+            this.updateStatusInfo("Error: Rendering failed");
             // 不抛出错误，避免中断录制流程
         } finally {
             this.restoreEditorHelpers();
@@ -1033,20 +1046,20 @@ export class RecordingCamera {
     // 获取canvas流用于录制
     getStream(fps: number = 30) {
         if (!this.canvas) {
-            console.error('Canvas 未初始化，无法获取流');
+            console.error('[RecordingCamera] getStream Canvas 未初始化，无法获取流');
             return null;
         }
 
         try {
             const stream = this.canvas.captureStream(fps);
             if (!stream) {
-                console.error('captureStream 返回 null');
+                console.error('[RecordingCamera] getStream captureStream 返回 null');
                 return null;
             }
 
             // 验证流是否有效
             if (stream.getVideoTracks().length === 0) {
-                console.error('流中没有视频轨道');
+                console.error('[RecordingCamera] getStream 流中没有视频轨道');
                 return null;
             }
 
@@ -1093,7 +1106,7 @@ export class RecordingCamera {
             this.renderer.dispose();
             this.renderer = null;
         }
-        console.log("销毁录制相机，销毁预览窗口 dispose=======");
+
         // 从主窗口移除覆盖层和Canvas
         if (this.overlayContainer && this.overlayContainer.parentNode) {
             this.overlayContainer.parentNode.removeChild(this.overlayContainer);
@@ -1127,19 +1140,18 @@ export class RecordingCamera {
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
 
-        if (this.originalEnvMap === null) {
-            this.originalEnvMap = scene.environment;
-        }
-        if (this.originalBackground === null) {
-            this.originalBackground = scene.background;
-        }
+        // ✅ 修复：每次渲染前都重新保存当前场景状态，而不是只在第一次保存
+        // 这样可以确保如果场景状态在导出过程中被外部修改（如 setSkyboxEnabled），
+        // 我们保存的是最新的状态，而不是第一次调用时的旧状态
+        this.originalEnvMap = scene.environment;
+        this.originalBackground = scene.background;
 
         try {
             // 为本次录制渲染设置专用的环境贴图和背景
-            if (this.recordingEnvMap) {
+            if (this.skyboxEnabled && this.recordingEnvMap) {
                 scene.environment = this.recordingEnvMap;
             }
-            if (this.recordingBackground) {
+            if (this.skyboxEnabled && this.recordingBackground) {
                 scene.background = this.recordingBackground;
             }
             var render_success = false;
@@ -1195,9 +1207,14 @@ export class RecordingCamera {
             // 重新抛出错误，让调用者知道渲染失败了
             throw new Error(`RecordingCamera failed to render frame: ${(error as Error).message}`);
         } finally {
-            // 恢复场景原始的环境贴图和背景 (无论成功还是失败都执行)
-            scene.environment = this.originalEnvMap;
-            scene.background = this.originalBackground;
+            // ✅ 修复：始终恢复原始值，无论 skyboxEnabled 状态如何
+            // 这样可以确保场景状态在渲染后正确恢复，避免被临时替换的值覆盖
+            if (this.originalEnvMap !== null) {
+                scene.environment = this.originalEnvMap;
+            }
+            if (this.originalBackground !== null) {
+                scene.background = this.originalBackground;
+            }
             
             // 清理引用，避免内存占用
             this.originalEnvMap = null;

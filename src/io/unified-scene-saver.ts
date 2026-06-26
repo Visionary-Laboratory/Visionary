@@ -41,6 +41,10 @@ export interface SaveUnifiedSceneSceneEntry {
 }
 
 export interface SaveUnifiedSceneParams {
+    /** 天空盒设置 */
+    skyboxEnabled: boolean;
+    /** 天空盒URL */
+    // skyboxUrl: string;
     /** 多场景结构 */
     scenes: SaveUnifiedSceneSceneEntry[];
     /** 用户授权的目标文件夹（场景文件夹） */
@@ -93,7 +97,7 @@ async function clearFolder(folderHandle: FileSystemDirectoryHandle): Promise<voi
         for await (const [name, handle] of folderHandle as any) {
             entries.push([name, handle]);
         }
-        
+
         // 删除所有条目
         for (const [entryName, handle] of entries) {
             try {
@@ -113,7 +117,7 @@ async function clearFolder(folderHandle: FileSystemDirectoryHandle): Promise<voi
     } catch (error) {
         const errorMessage = (error as Error).message || String(error);
         // 如果文件夹为空或不存在，忽略错误
-        if (!errorMessage.includes('could not be found') && 
+        if (!errorMessage.includes('could not be found') &&
             !errorMessage.includes('not found')) {
             console.warn('[Scene] 清空文件夹时出现错误:', errorMessage);
             throw new Error(`清空文件夹失败: ${errorMessage}`);
@@ -127,7 +131,7 @@ async function clearFolder(folderHandle: FileSystemDirectoryHandle): Promise<voi
  * @throws 拷贝或写入失败会抛出异常，请在上层捕获并提示用户
  */
 export async function saveUnifiedScene(params: SaveUnifiedSceneParams): Promise<void> {
-    const { scenes, folderHandle, meta } = params;
+    const { skyboxEnabled, scenes, folderHandle, meta } = params;
 
     // 在开始保存前验证文件夹句柄有效性
     await verifyFolderHandle(folderHandle);
@@ -185,8 +189,9 @@ export async function saveUnifiedScene(params: SaveUnifiedSceneParams): Promise<
     const sceneJson = {
         version: 1,
         meta: meta || { createdAt: new Date().toISOString(), app: 'VisionaryEditor' },
-        camera:params.cameraParams||{position:[0,0,0],rotation:[0,0,0],scale:[1,1,1],fov:60,nearPlane:0.1,farPlane:1000},
-        totalFrames:params.totalFrames||100,
+        skyboxEnabled: skyboxEnabled || false,
+        camera: params.cameraParams || { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1], fov: 60, nearPlane: 0.1, farPlane: 1000 },
+        totalFrames: params.totalFrames || 100,
         scenes: scenes.map(scene => ({
             ...scene,
             // 为兼容性防止存储不必要runtime字段
@@ -198,6 +203,7 @@ export async function saveUnifiedScene(params: SaveUnifiedSceneParams): Promise<
 
     // 写 scene.json
     try {
+        console.log('[Scene] 写入 scene.json:', sceneJson);
         const sceneHandle = await folderHandle.getFileHandle('scene.json', { create: true });
         const sceneWritable = await sceneHandle.createWritable();
         await sceneWritable.write(JSON.stringify(sceneJson, null, 2));
