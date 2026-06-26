@@ -10,7 +10,7 @@ import { FBXLoaderManager } from './managers/fbx-loader';
 import { FBXLoadOptions } from '../models/fbx-model-wrapper';
 
 // 支持的模型类型
-export type ModelType = 'ply' | 'onnx' | 'gltf' | 'glb' | 'obj' | 'fbx' | 'stl' | 'gaussian';
+export type ModelType = 'ply' | 'onnx' | 'gltf' | 'glb' | 'obj' | 'fbx' | 'stl' | 'spz' | 'gaussian';
 
 export interface UnifiedLoadOptions {
   /** 模型类型，如果不指定会自动检测 */
